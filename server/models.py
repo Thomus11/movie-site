@@ -15,7 +15,8 @@ reservation_seats = db.Table(
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)  # Added email field
     password_hash = db.Column(db.String(128))
     role = db.Column(db.String(20), default='user')  # user or admin
 
@@ -32,10 +33,11 @@ class User(db.Model, SerializerMixin):
 class Movie(db.Model, SerializerMixin):
     __tablename__ = 'movies'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String)
-    description = db.Column(db.String)
-    poster_url = db.Column(db.String)
-    genre = db.Column(db.String)
+    title = db.Column(db.String(200), nullable=False)  # Added length constraint
+    description = db.Column(db.Text, nullable=False)  # Changed to Text for longer descriptions
+    poster_url = db.Column(db.String(500))  # Increased length for URLs
+    genre = db.Column(db.String(50), nullable=False)  # Added length constraint
+    release_date = db.Column(db.Date, nullable=False)  # Added release date
 
     showtimes = db.relationship('Showtime', backref='movie', cascade="all, delete")
 
@@ -44,8 +46,9 @@ class Movie(db.Model, SerializerMixin):
 class Showtime(db.Model, SerializerMixin):
     __tablename__ = 'showtimes'
     id = db.Column(db.Integer, primary_key=True)
-    movie_id = db.Column(db.Integer, db.ForeignKey('movies.id'))
-    start_time = db.Column(db.DateTime)
+    movie_id = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    duration = db.Column(db.Integer, nullable=False)  # Added duration in minutes
 
     reservations = db.relationship('Reservation', backref='showtime', cascade="all, delete")
     seats = db.relationship('Seat', backref='showtime', cascade="all, delete")
@@ -55,18 +58,25 @@ class Showtime(db.Model, SerializerMixin):
 class Seat(db.Model, SerializerMixin):
     __tablename__ = 'seats'
     id = db.Column(db.Integer, primary_key=True)
-    seat_number = db.Column(db.String)
+    seat_number = db.Column(db.String(10), nullable=False)  # Added length constraint
+    row = db.Column(db.String(1), nullable=False)  # Added row identifier (e.g., A, B, C)
+    column = db.Column(db.Integer, nullable=False)  # Added column number
     is_reserved = db.Column(db.Boolean, default=False)
-    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'))
+    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('seat_number', 'showtime_id', name='unique_seat_per_showtime'),
+    )  # Ensures seat uniqueness per showtime
 
     serialize_rules = ('-showtime.seats',)
 
-class Reservation(db.Model, SerializerMixin):
+class Reservation(db.Model, SerializerMixin): 
     __tablename__ = 'reservations'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='pending')  # Added reservation status
 
     seats = db.relationship('Seat', secondary=reservation_seats)
 
