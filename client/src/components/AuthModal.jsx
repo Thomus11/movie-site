@@ -57,7 +57,7 @@ export default function AuthModal({ type, onClose, onLogin }) {
 
       // Redirect based on role
       if (values.role === "user") {
-        navigate("/user-dashboard");
+        navigate("/dashboard");
       } else if (values.role === "admin") {
         navigate("/admin-auth");
       }
