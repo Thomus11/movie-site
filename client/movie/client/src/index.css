@@ -66,3 +66,23 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.seats-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+}
+.seat {
+  padding: 8px;
+  background-color: lightgray;
+  border: none;
+}
+.seat.selected {
+  background-color: green;
+  color: white;
+}
+.seat.reserved {
+  background-color: red;
+  color: white;
+  cursor: not-allowed;
+}
