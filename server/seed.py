@@ -1,5 +1,5 @@
 from app import app, db
-from models import User, Movie, Showtime, Seat, Reservation, Payment
+from models import User, Movie, Showtime, Seat, Reservation, Payment , Admin, AdminReference
 from datetime import datetime, timedelta
 import random
 
@@ -12,7 +12,7 @@ def seed_data():
         if not User.query.filter_by(username="Admin Thomus").first():
             admin = User(
                 username="Admin Thomus",
-                email="adminthomas827@.com",  # Admin email
+                email="adminthomas827@gmail.com",  # Admin email
                 role="admin"
             )
             admin.set_password("adminpassword")

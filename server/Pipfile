@@ -11,10 +11,11 @@ flask_migrate = "*"
 resend = "*"
 cloudinary = "*"
 humanize = "*"
-python-dotenv = "*"
 sqlalchemy_serializer = "*"
 werkzeug = "*"
 flask-sqlalchemy = "*"
+flask-migrate = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
