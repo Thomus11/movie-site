@@ -33,11 +33,11 @@ class User(db.Model, SerializerMixin):
 class Movie(db.Model, SerializerMixin):
     __tablename__ = 'movies'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)  # Added length constraint
-    description = db.Column(db.Text, nullable=False)  # Changed to Text for longer descriptions
-    poster_url = db.Column(db.String(500))  # Increased length for URLs
-    genre = db.Column(db.String(50), nullable=False)  # Added length constraint
-    release_date = db.Column(db.Date, nullable=False)  # Added release date
+    title = db.Column(db.String(200), nullable=False)  
+    description = db.Column(db.Text, nullable=False) 
+    poster_url = db.Column(db.String(500))  
+    genre = db.Column(db.String(50), nullable=False)  
+    release_date = db.Column(db.Date, nullable=False)  
 
     showtimes = db.relationship('Showtime', backref='movie', cascade="all, delete")
 
@@ -76,7 +76,7 @@ class Reservation(db.Model, SerializerMixin):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='pending')  # Added reservation status
+    status = db.Column(db.String(20), default='pending')  
     payment = db.relationship('Payment', backref='reservation', uselist=False, cascade="all, delete-orphan")
     seats = db.relationship('Seat', secondary=reservation_seats)
 

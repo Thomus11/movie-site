@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import jwt
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db, User, Movie, Showtime, Seat, Reservation
@@ -24,7 +25,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry  
+app.config['JWT_ALGORITHM'] = 'HS256'
+app.config['JWT_HEADER_TYPE'] = 'Bearer'
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')  # Default to development
 FLASK_APP = os.getenv('FLASK_APP', 'app.py')  # Default app entry point
 app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
@@ -137,7 +141,7 @@ def login():
     if not user or not user.check_password(password):
         return jsonify({"message": "Invalid credentials"}), 401
 
-    access_token = create_access_token(identity=user.id, expires_delta=timedelta(hours=1))
+    access_token = create_access_token(identity=user.id)
     return jsonify(access_token=access_token), 200
 
 # Promote a user to admin (Admin only)
