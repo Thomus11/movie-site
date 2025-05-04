@@ -34,7 +34,7 @@ function HomePage() {
   
     // Redirect based on role
     if (userData.role === "user") {
-      navigate("/user-dashboard");
+      navigate("/dashboard");
     } else if (userData.role === "admin") {
       navigate("/admin-auth");
     }
