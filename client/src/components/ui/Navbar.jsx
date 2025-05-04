@@ -3,10 +3,18 @@
 import React from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { FaUserCircle } from "react-icons/fa";
 
 function Navbar({ openModal }) {
   const { currentUser, setCurrentUser } = useAuth();
   const navigate = useNavigate();
+
+  const handleProfileClick = () => {
+    if (currentUser) {
+      navigate('/user-dashboard');
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 w-full bg-[#0B0C10] text-white p-4 z-50">
       <div className="flex justify-between items-center max-w-screen-xl mx-auto">
@@ -22,6 +30,11 @@ function Navbar({ openModal }) {
         {currentUser ? (
           <div className="space-x-4 flex items-center">
             <span className="mr-2">Welcome, {currentUser.username}</span>
+            <FaUserCircle 
+              size={32} 
+              className="text-[#6a040f] hover:text-[#370617] cursor-pointer transition-colors mr-4"
+              onClick={handleProfileClick}
+            />
             <button
               onClick={() => {
                 setCurrentUser(null);
@@ -48,7 +61,6 @@ function Navbar({ openModal }) {
             </button>
           </div>
         )}
-        
       </div>
     </nav>
   );

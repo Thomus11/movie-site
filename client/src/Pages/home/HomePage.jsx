@@ -31,34 +31,19 @@ function HomePage() {
     setAdminVerified(true);
   };
 
-  if (!currentUser) {
-    // Not logged in
-    return (
-      <div className="relative min-h-screen bg-black">
-        <Navbar openModal={openModal} />
-        <div className="w-full h-screen">
-          <Carousel />
-        </div>
-        <AvailableNow />
-        <ComingSoon />
-        {showAuthModal && <AuthModal type={authType} onClose={closeModal} />}
-        <Footer />
+  // Not logged in
+  return (
+    <div className="relative min-h-screen bg-black">
+      <Navbar openModal={openModal} />
+      <div className="w-full h-screen">
+        <Carousel />
       </div>
-    );
-  }
-
-  // Logged-in user
-  if (currentUser.role === "user") {
-    return <UserDashboard user={currentUser} />;
-  } else if (currentUser.role === "admin") {
-    if (!adminVerified) {
-      return <AdminAuthPage onVerify={handleAdminVerification} />;
-    } else {
-      return <AdminDashboard admin={currentUser} />;
-    }
-  }
-
-  return null;
+      <AvailableNow />
+      <ComingSoon />
+      {showAuthModal && <AuthModal type={authType} onClose={closeModal} />}
+      <Footer />
+    </div>
+  );
 }
 
 export default HomePage;

@@ -52,7 +52,7 @@ export default function AuthModal({ type, onClose }) {
       console.log("Form Submitted", values);
       
       const userData = {
-        username: values.email,
+        username: values.email.split('@')[0],
         role: values.role,
       };
       

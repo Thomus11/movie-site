@@ -1,16 +1,19 @@
-// ProtectedRoute.js
-
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-  const { token, setShowAuthModal } = useAuth();
+  const { currentUser, setShowAuthModal } = useAuth();
+  const navigate = useNavigate();
 
-  if (!token) {
-    setShowAuthModal(true); // trigger modal
-    return null; // don't render protected content
-  }
+  useEffect(() => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      navigate('/');
+    }
+  }, [currentUser, navigate, setShowAuthModal]);
 
-  return children;
+  return currentUser ? children : null;
 };
 
 export default ProtectedRoute;
