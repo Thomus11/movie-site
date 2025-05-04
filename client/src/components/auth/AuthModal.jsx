@@ -1,12 +1,14 @@
-// AuthModal.js
+// AuthModal.jsx
 
 import React from "react";
 import { useFormik } from "formik";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
-export default function AuthModal({ type, onClose, onLogin }) {
+export default function AuthModal({ type, onClose }) {
   const isLogin = type === "login";
   const navigate = useNavigate(); // To navigate after login/signup
+  const { setCurrentUser } = useAuth();
 
   const formik = useFormik({
     initialValues: {
@@ -48,16 +50,19 @@ export default function AuthModal({ type, onClose, onLogin }) {
     },
     onSubmit: (values) => {
       console.log("Form Submitted", values);
-
       
-      onLogin({
-        username: values.email,
+      const userData = {
+        username: values.email.split('@')[0],
         role: values.role,
-      });
-
+      };
+      
+      // Update global auth state
+      setCurrentUser(userData);
+      onClose();
+      
       // Redirect based on role
       if (values.role === "user") {
-        navigate("/dashboard");
+        navigate("/user-dashboard");
       } else if (values.role === "admin") {
         navigate("/admin-auth");
       }

@@ -1,32 +1,23 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './Pages/ProtectedRoute';
 
-import HomePage from './Pages/Home';
-import Dashboard from './Pages/UserDashboard';
+
 import NotFound from './Pages/NotFound';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<HomePage />} />
+    <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<HomePage />} />
 
         {/* User and Admin dashboards */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<UserDashboard />} />
 
-        {/* Fallback */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Router>
+      {/* Fallback */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
-
-// Wrap BookingPage to extract movieId from the route params
-import { useParams } from 'react-router-dom';
-const BookingPageWrapper = () => {
-  const { movieId } = useParams();
-  return <BookingPage movieId={movieId} />;
-};
 
 export default App;

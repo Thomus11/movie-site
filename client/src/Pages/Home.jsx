@@ -5,7 +5,7 @@ import AuthModal from "../components/AuthModal";
 import AvailableNow from "./AvailableNow";
 import ComingSoon from "./ComingSoon";
 import Footer from "./Footer";
-import Dashboard from "./UserDashboard"
+import Dashboard from "./components/UserDashboard"
 import AdminAuthPage from "../components/AdminAuthPage";
 import AdminDashboard from "../components/AdminDashboard";
 import { useNavigate } from "react-router-dom";

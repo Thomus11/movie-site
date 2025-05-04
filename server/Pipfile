@@ -4,6 +4,17 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+<<<<<<< HEAD
+=======
+flask = "*"
+flask-sqlalchemy = "*"
+sqlalchemy-serializer = "*"
+flask-jwt-extended = "*"
+resend = "*"
+cloudinary = "*"
+python-dotenv = "*"
+humanize = "*"
+>>>>>>> fahmy
 
 [dev-packages]
 

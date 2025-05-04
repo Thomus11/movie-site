@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { FaUserCircle } from "react-icons/fa";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import Navbar from "../../components/ui/Navbar";
 
 const availableMovies = [
   {
@@ -66,28 +68,22 @@ const fadeInVariant = {
   }),
 };
 
-const UserDashboard = () => {
+export default function UserDashboard() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [selectedMovie, setSelectedMovie] = useState(null);
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
+
+  if (!currentUser) return null;
 
   return (
     <div className="bg-[#0B0C10] min-h-screen pb-20">
-      {/* Navbar */}
-      <nav className="fixed top-0 left-0 w-full bg-[#0B0C10] text-white p-4 z-50 shadow-md">
-        <div className="flex justify-between items-center max-w-screen-xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <div className="text-3xl font-bold text-[#6a040f]">🎬 Cine</div>
-            <div className="text-3xl font-bold text-white">Reserve</div>
-          </div>
-          <div className="hidden sm:block">
-            <a href="#" className="text-lg font-medium text-white hover:text-[#e63946]">Home</a>
-          </div>
-          <div className="flex items-center space-x-6">
-            <a href="#" className="text-lg font-medium text-white hover:text-[#e63946]">Logout</a>
-            <FaUserCircle size={28} className="text-white hover:text-[#e63946] cursor-pointer" />
-          </div>
-        </div>
-      </nav>
-
+      <Navbar />
       <div className="pt-28" />
 
       <div className="max-w-screen-xl mx-auto px-6 space-y-24">
@@ -179,7 +175,5 @@ const UserDashboard = () => {
       )}
     </div>
   );
-};
-
-export default UserDashboard;
+}
 
