@@ -5,17 +5,15 @@ name = "pypi"
 
 [packages]
 flask = "*"
-flask_sqlalchemy = "*"
-flask_jwt_extended = "*"
-flask_migrate = "*"
-resend = "*"
-cloudinary = "*"
-humanize = "*"
-sqlalchemy_serializer = "*"
-werkzeug = "*"
 flask-sqlalchemy = "*"
 flask-migrate = "*"
+flask-jwt-extended = "*"
 python-dotenv = "*"
+humanize = "*"
+cloudinary = "*"
+resend = "*"
+psycopg2-binary = "*"
+sqlalchemy-serializer = "*"
 
 [dev-packages]
 

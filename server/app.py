@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import jwt
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from models import db, User, Movie, Showtime, Seat, Reservation
+from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from resend.emails._emails import Emails
 import cloudinary
@@ -36,11 +36,21 @@ app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('CLOUDINARY_CLOUD_NAME')
 app.config['CLOUDINARY_API_KEY'] = os.getenv('CLOUDINARY_API_KEY')
 app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
 
-# Initialize extensions
+# Limit upload size and allowed extensions
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
+# Initialize extensions
 db.init_app(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
+    api_key=app.config['CLOUDINARY_API_KEY'],
+    api_secret=app.config['CLOUDINARY_API_SECRET']
+)
 
 # JWT Error Handlers
 @jwt.expired_token_loader
@@ -58,11 +68,6 @@ def missing_token_callback(error):
 @jwt.revoked_token_loader
 def revoked_token_callback(jwt_header, jwt_payload):
     return jsonify({"message": "The token has been revoked"}), 401
-cloudinary.config(
-    cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
-    api_key=app.config['CLOUDINARY_API_KEY'],
-    api_secret=app.config['CLOUDINARY_API_SECRET']
-)
 
 # Error Handling
 @app.errorhandler(404)
@@ -99,6 +104,10 @@ def validate_email(email):
         return False
     return True
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
 # Routes
 
 # Register a new user
@@ -127,6 +136,9 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+    
+    # Send welcome email
+    send_email(email, "Welcome to Our Service", f"Hello {username}, thank you for registering!")
 
     return jsonify({"message": "User registered successfully"}), 201
 
@@ -269,7 +281,10 @@ def search_movies():
         query = query.filter(Movie.title.ilike(f"%{title}%"))
 
     movies = query.all()
-    return jsonify([movie.to_dict() for movie in movies]), 200
+    return jsonify([{
+        **movie.to_dict(),
+        "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
+    } for movie in movies]), 200
 
 # Get paginated list of movies
 @app.route('/movies', methods=['GET'])
@@ -282,12 +297,15 @@ def get_movies():
     movies = pagination.items
 
     return jsonify({
-        "movies": [movie.to_dict() for movie in movies],
+        "movies": [{
+            **movie.to_dict(),
+            "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
+        } for movie in movies],
         "total_pages": pagination.pages,
         "current_page": pagination.page
     }), 200
 
-# Upload a movie poster (Admin only)
+# Upload a movie poster (Admin only) with file validation
 @app.route('/upload-poster', methods=['POST'])
 @jwt_required()
 def upload_poster():
@@ -304,9 +322,20 @@ def upload_poster():
     if file.filename == '':
         return jsonify({"message": "No selected file"}), 400
 
-    upload_result = cloudinary.uploader.upload(file)
-    return jsonify({"url": upload_result['secure_url']}), 200
+    if not allowed_file(file.filename):
+        return jsonify({"message": "Invalid file type"}), 400
 
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file,
+            resource_type="image",
+            allowed_formats=list(ALLOWED_EXTENSIONS)
+        )
+        return jsonify({"url": upload_result['secure_url']}), 200
+    except Exception as e:
+        app.logger.error(f"Cloudinary upload failed: {str(e)}")
+        return jsonify({"message": "File upload failed"}), 500
+    
 # Create a showtime (Admin only)
 @app.route('/showtimes', methods=['POST'])
 @jwt_required()
@@ -337,7 +366,11 @@ def create_showtime():
     db.session.add(showtime)
     db.session.commit()
 
-    return jsonify({"message": "Showtime created successfully", "showtime_id": showtime.id}), 201
+    return jsonify({
+        "message": "Showtime created successfully", 
+        "showtime_id": showtime.id,
+        "start_time": naturaltime(showtime.start_time)
+    }), 201
 
 # Get movies and showtimes for a specific date
 @app.route('/showtimes/search', methods=['GET'])
@@ -530,8 +563,11 @@ def admin_report():
 
     if user.role != 'admin':
         return jsonify({"message": "Admin access required"}), 403
-
+    
+    #Fetches all reservations
     reservations = Reservation.query.all()
+    
+    #prepare the report  data
     report = {
         "total_reservations": len(reservations),
         "capacity_utilization": sum(len(r.seats) for r in reservations),
@@ -539,6 +575,32 @@ def admin_report():
     }
 
     return jsonify(report), 200
+
+# Admin view of all reservations
+@app.route('/admin/reservations', methods=['GET'])
+@jwt_required()
+def admin_view_reservations():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    reservations = Reservation.query.all()
+
+    reservation_data = [
+        {
+            "reservation_id": reservation.id,
+            "user_id": reservation.user_id,
+            "showtime": naturaltime(reservation.showtime.start_time),
+            "seats": [seat.seat_number for seat in reservation.seats],
+            "total_amount": len(reservation.seats) * 10  # Example amount calculation
+        }
+        for reservation in reservations
+    ]
+
+    return jsonify(reservation_data), 200
+
 
 @app.route('/')
 def index():
