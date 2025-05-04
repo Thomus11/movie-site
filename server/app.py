@@ -8,6 +8,7 @@ import cloudinary.uploader
 from datetime import timedelta, datetime
 from humanize import naturaltime
 from dotenv import load_dotenv
+from flask_cors import CORS
 import os
 import re  # For manual email validation
 
@@ -15,6 +16,7 @@ import re  # For manual email validation
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cinema.db'
@@ -85,7 +87,16 @@ def validate_email(email):
         return False
     return True
 
-# Routes
+
+# Helper function to validate strong password
+def is_strong_password(password):
+    return (
+        len(password) >= 8 and
+        re.search(r"[A-Z]", password) and
+        re.search(r"[a-z]", password) and
+        re.search(r"\d", password) and
+        re.search(r"[!@#$%^&*(),.?\":{}|<>]", password)
+    )
 
 # Register a new user
 @app.route('/register', methods=['POST'])
@@ -95,26 +106,32 @@ def register():
     email = data.get('email')
     password = data.get('password')
 
-    # Validation
     if not username or len(username) > 80:
         return jsonify({"message": "Username is required and must be <= 80 characters"}), 400
     if not email or not validate_email(email):
         return jsonify({"message": "Invalid email address"}), 400
-    if not password or len(password) < 6:
-        return jsonify({"message": "Password is required and must be >= 6 characters"}), 400
+    if not password:
+        return jsonify({"message": "Password is required"}), 400
+    if not is_strong_password(password):
+        return jsonify({
+            "message": "Password must be at least 8 characters long, include an uppercase letter, "
+                       "a lowercase letter, a number, and a special character."
+        }), 400
 
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "Username already exists"}), 400
-
     if User.query.filter_by(email=email).first():
-        return jsonify({"message": "Email already exists"}), 400
+        return jsonify({
+            "message": "An account with this email already exists. Please sign in or use a different email address."
+        }), 400
 
-    user = User(username=username, email=email)
+    user = User(username=username, email=email, role='user')  # always default to user
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
 
     return jsonify({"message": "User registered successfully"}), 201
+
 
 # Login and generate JWT token
 @app.route('/login', methods=['POST'])
@@ -125,10 +142,15 @@ def login():
 
     user = User.query.filter_by(username=username).first()
     if not user or not user.check_password(password):
-        return jsonify({"message": "Invalid credentials"}), 401
+        return jsonify({"message": "We couldn't verify your credentials. Please check your email and password"}), 401
 
     access_token = create_access_token(identity=user.id, expires_delta=timedelta(hours=1))
-    return jsonify(access_token=access_token), 200
+    return jsonify({
+        "access_token": access_token,
+        "role": user.role,
+        "username": user.username
+    }), 200
+
 
 # Promote a user to admin (Admin only)
 @app.route('/users/promote/<int:user_id>', methods=['POST'])
@@ -394,7 +416,7 @@ def create_reservation():
     # Check seat availability
     seats = Seat.query.filter(Seat.id.in_(seat_ids), Seat.is_reserved == False).all()
     if len(seats) != len(seat_ids):
-        return jsonify({"message": "One or more seats are already reserved"}), 400
+        return jsonify({"message": "One or more of the selected seats are no longer available. Please choose different seats."}), 400
 
     reservation = Reservation(user_id=user_id, showtime_id=showtime_id)
     reservation.seats = seats
@@ -408,7 +430,7 @@ def create_reservation():
 
     # Send confirmation email
     user = User.query.get(user_id)
-    send_email(user.email, "Reservation Confirmation", "Your reservation has been confirmed.")
+    send_email(user.email, "Reservation Confirmation", "Your reservation has been confirmed, we look foward to seeing you!")
 
     return jsonify({"message": "Reservation created successfully"}), 201
 
