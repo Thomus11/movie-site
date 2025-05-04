@@ -5,7 +5,7 @@ import AuthModal from "../components/AuthModal";
 import AvailableNow from "./AvailableNow";
 import ComingSoon from "./ComingSoon";
 import Footer from "./Footer";
-import UserDashboard from "../components/UserDashboard";
+import Dashboard from "./UserDashboard"
 import AdminAuthPage from "../components/AdminAuthPage";
 import AdminDashboard from "../components/AdminDashboard";
 import { useNavigate } from "react-router-dom";
@@ -63,7 +63,7 @@ function HomePage() {
 
   // Logged-in user
   if (user.role === "user") {
-    return <UserDashboard user={user} />;
+    return <Dashboard user={user} />;
   } else if (user.role === "admin") {
     if (!adminVerified) {
       return <AdminAuthPage onVerify={handleAdminVerification} />;

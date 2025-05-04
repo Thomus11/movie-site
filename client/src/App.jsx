@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import HomePage from './Pages/Home';
-import UserDashboard from './components/UserDashboard';
+import Dashboard from './Pages/UserDashboard';
 import NotFound from './Pages/NotFound';
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
 
         {/* User and Admin dashboards */}
-        <Route path="/dashboard" element={<UserDashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
 
         {/* Fallback */}
         <Route path="*" element={<NotFound />} />
