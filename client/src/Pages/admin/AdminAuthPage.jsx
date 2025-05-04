@@ -1,15 +1,24 @@
 // AdminAuthPage.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function AdminAuthPage({ onVerify }) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [branch, setBranch] = useState("");
   const [adminCode, setAdminCode] = useState("");
 
+  useEffect(() => {
+    // Redirect if not logged in or not an admin
+    if (!currentUser || currentUser.role !== "admin") {
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (adminCode === process.env.REACT_APP_ADMIN_CODE || adminCode === "SECRET123") {
+    if (adminCode === import.meta.env.VITE_ADMIN_CODE || adminCode === "SECRET123") {
       if (onVerify) {
         onVerify();
       }
@@ -18,6 +27,8 @@ export default function AdminAuthPage({ onVerify }) {
       alert("Invalid Admin Code");
     }
   };
+
+  if (!currentUser || currentUser.role !== "admin") return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B0C10] text-white">

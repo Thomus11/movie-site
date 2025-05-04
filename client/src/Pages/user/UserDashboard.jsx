@@ -72,6 +72,11 @@ export default function UserDashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [availableMovies, setAvailableMovies] = useState([]);
+  const [comingSoonMovies, setComingSoonMovies] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -79,7 +84,37 @@ export default function UserDashboard() {
     }
   }, [currentUser, navigate]);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch available movies
+        const moviesResponse = await fetch('/api/movies/available');
+        const moviesData = await moviesResponse.json();
+        setAvailableMovies(moviesData);
+
+        // Fetch coming soon movies
+        const comingSoonResponse = await fetch('/api/movies/coming-soon');
+        const comingSoonData = await comingSoonResponse.json();
+        setComingSoonMovies(comingSoonData);
+
+        // Fetch branches
+        const branchesResponse = await fetch('/api/branches');
+        const branchesData = await branchesResponse.json();
+        setBranches(branchesData);
+
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch data');
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   if (!currentUser) return null;
+  if (loading) return <div className="min-h-screen bg-[#0B0C10] text-white flex items-center justify-center">Loading...</div>;
+  if (error) return <div className="min-h-screen bg-[#0B0C10] text-white flex items-center justify-center">{error}</div>;
 
   return (
     <div className="bg-[#0B0C10] min-h-screen pb-20">
