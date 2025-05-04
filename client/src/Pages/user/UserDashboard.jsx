@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { FaUserCircle } from "react-icons/fa";
 import { motion } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const availableMovies = [
   {
@@ -66,7 +68,17 @@ const fadeInVariant = {
   }),
 };
 
-const UserDashboard = () => {
+export default function UserDashboard() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("bookings");
+
+  // Redirect if not logged in
+  if (!currentUser) {
+    navigate('/');
+    return null;
+  }
+
   const [selectedMovie, setSelectedMovie] = useState(null);
 
   return (
@@ -180,6 +192,4 @@ const UserDashboard = () => {
     </div>
   );
 };
-
-export default UserDashboard;
 

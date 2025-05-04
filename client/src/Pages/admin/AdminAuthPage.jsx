@@ -1,15 +1,18 @@
-//AdminAuthPage.js
+// AdminAuthPage.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function AdminAuthPage() {
+export default function AdminAuthPage({ onVerify }) {
   const navigate = useNavigate();
   const [branch, setBranch] = useState("");
   const [adminCode, setAdminCode] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (adminCode === "SECRET123") {
+    if (adminCode === process.env.REACT_APP_ADMIN_CODE || adminCode === "SECRET123") {
+      if (onVerify) {
+        onVerify();
+      }
       navigate("/admin-dashboard");
     } else {
       alert("Invalid Admin Code");
