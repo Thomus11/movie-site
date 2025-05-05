@@ -11,7 +11,7 @@ import AdminDashboard from "../admin/AdminDashboard";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
-
+ 
 function HomePage() {
   const navigate = useNavigate();
   const { currentUser, setCurrentUser, showAuthModal, setShowAuthModal } = useAuth();

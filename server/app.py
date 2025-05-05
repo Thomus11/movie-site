@@ -3,7 +3,7 @@ import jwt
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from resend.emails._emails import Emails
 import cloudinary
 import cloudinary.uploader
@@ -158,28 +158,49 @@ def login():
         return jsonify({"message": "Invalid credentials"}), 401
 
 
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity={"id": user.id, "role": user.role})
     return jsonify(access_token=access_token), 200
 
-# Promote a user to admin (Admin only)
-@app.route('/users/promote/<int:user_id>', methods=['POST'])
-@jwt_required()
-def promote_user(user_id):
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
+@app.route('/register-admin', methods=['POST'])
+def register_admin():
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    referral_code = data.get('referral_code')
 
-    if current_user.role != 'admin':
-        return jsonify({"message": "Admin access required"}), 403
+    # Basic validation
+    if not all([username, email, password, referral_code]):
+        return jsonify({"message": "All fields are required"}), 400
 
-    user = User.query.get_or_404(user_id)
-    user.role = 'admin'
+    # Check referral code validity
+    reference = AdminReference.query.filter_by(admin_code=referral_code).first()
+    if not reference:
+        return jsonify({"message": "Invalid referral code"}), 400
+    if reference.is_registered:
+        return jsonify({"message": "Referral code already used"}), 400
+
+    # Ensure username/email uniqueness
+    if User.query.filter_by(username=username).first():
+        return jsonify({"message": "Username already exists"}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({"message": "Email already exists"}), 400
+
+    # Create admin user
+    user = User(username=username, email=email, role='admin')
+    user.set_password(password)
+    db.session.add(user)
+
+    # Mark reference as used
+    reference.is_registered = True
     db.session.commit()
 
-    return jsonify({"message": f"User {user.username} promoted to admin"}), 200
+    return jsonify({"message": "Admin registered successfully"}), 201
+
 
 # Create a new movie (Admin only)
 @app.route('/movies', methods=['POST'])
-@jwt_required()
+@jwt_required
 def create_movie():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -222,7 +243,7 @@ def create_movie():
 
 # Update a movie (Admin only)
 @app.route('/movies/<int:movie_id>', methods=['PUT'])
-@jwt_required()
+@jwt_required
 def update_movie(movie_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -258,7 +279,7 @@ def update_movie(movie_id):
 
 # Delete a movie (Admin only)
 @app.route('/movies/<int:movie_id>', methods=['DELETE'])
-@jwt_required()
+@jwt_required
 def delete_movie(movie_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -274,7 +295,7 @@ def delete_movie(movie_id):
 
 # Fetch movies by genre and/or title
 @app.route('/movies/search', methods=['GET'])
-@jwt_required()
+@jwt_required
 def search_movies():
     genre = request.args.get('genre')
     title = request.args.get('title')
@@ -295,7 +316,7 @@ def search_movies():
 
 # Get paginated list of movies
 @app.route('/movies', methods=['GET'])
-@jwt_required()
+@jwt_required
 def get_movies():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -315,7 +336,7 @@ def get_movies():
 
 # Upload a movie poster (Admin only) with file validation
 @app.route('/upload-poster', methods=['POST'])
-@jwt_required()
+@jwt_required
 def upload_poster():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -347,7 +368,7 @@ def upload_poster():
     
 # Create a showtime (Admin only)
 @app.route('/showtimes', methods=['POST'])
-@jwt_required()
+@jwt_required
 def create_showtime():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -384,7 +405,7 @@ def create_showtime():
 
 # Get movies and showtimes for a specific date
 @app.route('/showtimes/search', methods=['GET'])
-@jwt_required()
+@jwt_required
 def search_showtimes():
     date = request.args.get('date')
     if not date:
@@ -405,7 +426,7 @@ def search_showtimes():
 
 # Create seats for a showtime (Admin only)
 @app.route('/seats', methods=['POST'])
-@jwt_required()
+@jwt_required
 def create_seats():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -438,7 +459,7 @@ def create_seats():
 
 # Create Reservation
 @app.route('/reservations/<int:reservation_id>', methods=['PUT'])
-@jwt_required()
+@jwt_required
 def update_reservation(reservation_id):
 
     data = request.get_json()
@@ -547,7 +568,7 @@ def update_reservation(reservation_id):
 
 # Cancel a reservation (User only)
 @app.route('/reservations/<int:reservation_id>', methods=['DELETE'])
-@jwt_required()
+@jwt_required
 def cancel_reservation(reservation_id):
     user_id = get_jwt_identity()
     reservation = Reservation.query.get_or_404(reservation_id)
@@ -569,7 +590,7 @@ def cancel_reservation(reservation_id):
 
 # Admin reporting: All reservations, capacity, and revenue
 @app.route('/admin/report', methods=['GET'])
-@jwt_required()
+@jwt_required
 def admin_report():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -591,7 +612,7 @@ def admin_report():
 
 # Admin view of all reservations
 @app.route('/admin/reservations', methods=['GET'])
-@jwt_required()
+@jwt_required
 def admin_view_reservations():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -639,6 +660,6 @@ def index():
     """
     
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
 

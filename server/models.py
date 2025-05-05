@@ -1,5 +1,3 @@
-
-
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_serializer import SerializerMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -17,22 +15,29 @@ reservation_seats = db.Table(
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True)
-    password_hash = db.Column(db.String(128))
-    role = db.Column(db.String(20), default='user')  # user or admin
+    username = db.Column(db.String(512), unique=True, nullable=False)
+    email = db.Column(db.String(512), unique=True, nullable=False)  # Added email field
+    password_hash = db.Column(db.String(256))
+    role = db.Column(db.String(50), default='user')  # user or admin
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reservations = db.relationship('Reservation', backref='user', cascade="all, delete")
 
-    serialize_rules = ('-admin.admin_refer',)
+    serialize_rules = ('-password_hash', '-reservations.user',)
 
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
-class Admin(db.Model, SerializerMixin):
-    __tablename__ = 'admins'
+class Movie(db.Model, SerializerMixin):
+    __tablename__ = 'movies'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String)
-    description = db.Column(db.String)
-    poster_url = db.Column(db.String)
-    genre = db.Column(db.String)
+    title = db.Column(db.String(200), nullable=False)  
+    description = db.Column(db.Text, nullable=False) 
+    poster_url = db.Column(db.String(500))  
+    genre = db.Column(db.String(50), nullable=False)  
+    release_date = db.Column(db.Date, nullable=False)  
 
     showtimes = db.relationship('Showtime', backref='movie', cascade="all, delete")
 
@@ -41,9 +46,10 @@ class Admin(db.Model, SerializerMixin):
 class Showtime(db.Model, SerializerMixin):
     __tablename__ = 'showtimes'
     id = db.Column(db.Integer, primary_key=True)
-    movie_id = db.Column(db.Integer, db.ForeignKey('movies.id'))
-    start_time = db.Column(db.DateTime)
-
+    movie_id = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    duration = db.Column(db.Integer, nullable=False)  # Added duration in minutes
+    admin_id= db.Column(db.Integer, db.ForeignKey('admins.id'))
     reservations = db.relationship('Reservation', backref='showtime', cascade="all, delete")
     seats = db.relationship('Seat', backref='showtime', cascade="all, delete")
 
@@ -52,19 +58,62 @@ class Showtime(db.Model, SerializerMixin):
 class Seat(db.Model, SerializerMixin):
     __tablename__ = 'seats'
     id = db.Column(db.Integer, primary_key=True)
-    seat_number = db.Column(db.String)
+    seat_number = db.Column(db.String(10), nullable=False)  # Added length constraint
+    row = db.Column(db.String(1), nullable=False)  # Added row identifier (e.g., A, B, C)
+    column = db.Column(db.Integer, nullable=False)  # Added column number
     is_reserved = db.Column(db.Boolean, default=False)
-    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'))
+    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('seat_number', 'showtime_id', name='unique_seat_per_showtime'),
+    )  # Ensures seat uniqueness per showtime
 
     serialize_rules = ('-showtime.seats',)
 
-class Reservation(db.Model, SerializerMixin):
+class Reservation(db.Model, SerializerMixin): 
     __tablename__ = 'reservations'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
+    status = db.Column(db.String(20), default='pending')  
+    payment = db.relationship('Payment', backref='reservation', uselist=False, cascade="all, delete-orphan")
     seats = db.relationship('Seat', secondary=reservation_seats)
 
-    serialize_rules = ('-user.reservations', '-showtime.reservations',)
+    serialize_rules = ('-user.reservations', '-showtime.reservations', '-payment.reservation')
+    
+class Payment(db.Model, SerializerMixin):
+    __tablename__ = 'payments'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    reservation_id = db.Column(db.Integer, db.ForeignKey('reservations.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    payment_date = db.Column(db.DateTime, default=datetime.utcnow)
+    payment_method = db.Column(db.String(50), nullable=False)  # e.g., 'credit_card', 'paypal', etc.
+    status = db.Column(db.String(20), default='pending')  # e.g., 'completed', 'failed', 'pending'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='payments')
+
+    serialize_rules = ('-user.payments', '-reservation.payment',)   
+
+class AdminReference(db.Model, SerializerMixin):
+    __tablename__ = 'admin_references'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    admin_code = db.Column(db.Integer, nullable=False, unique=True)
+    admin_branch = db.Column(db.String, nullable=False)
+    branch_till = db.Column(db.Integer, nullable=False)
+    is_registered = db.Column(db.Boolean, nullable=False, default=False)
+
+    admins = db.relationship('Admin', back_populates='reference', cascade='all, delete')
+
+
+class Admin(db.Model, SerializerMixin):
+    __tablename__ = 'admins'
+
+    id = db.Column(db.Integer, primary_key=True)
+    reference_id = db.Column(db.Integer, db.ForeignKey('admin_references.id'), nullable=False)
+
+    reference = db.relationship('AdminReference', back_populates='admins')
+
