@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import jwt
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
@@ -12,11 +12,39 @@ from humanize import naturaltime
 from dotenv import load_dotenv
 import os
 import re  # For manual email validation
+import stripe  # Added stripe import for payment processing
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
+
+# Configure Stripe with secret key from environment variables
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+
+# Define the process_stripe_payment function
+def process_stripe_payment(amount, payment_token):
+    """
+    Process a payment using Stripe API.
+
+    :param amount: Amount in dollars to charge
+    :param payment_token: Stripe payment token (e.g., from frontend)
+    :return: Stripe charge object
+    """
+    try:
+        # Stripe expects amount in cents
+        amount_cents = int(amount * 100)
+        charge = stripe.Charge.create(
+            amount=amount_cents,
+            currency='usd',
+            source=payment_token,
+            description='Movie reservation payment'
+        )
+        return charge
+    except stripe.error.StripeError as e:
+        # Handle Stripe errors
+        raise Exception(f"Stripe error: {str(e)}")
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = (
@@ -29,6 +57,8 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry
 app.config['JWT_ALGORITHM'] = 'HS256'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
+app.config["JWT_IDENTITY_CLAIM"] = "sub"  # Explicitly use 'sub' as identity claim
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')  # Default to development
 FLASK_APP = os.getenv('FLASK_APP', 'app.py')  # Default app entry point
 app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
@@ -193,9 +223,24 @@ def register_admin():
 
     # Mark reference as used
     reference.is_registered = True
-    db.session.commit()
 
-    return jsonify({"message": "Admin registered successfully"}), 201
+#Admin route
+@app.route('/admin', methods=['GET'])
+@jwt_required()
+def admin_dashboard():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    return jsonify({
+        "message": f"Welcome Admin {user.username}",
+        "admin": True,
+        "email": user.email,
+        "user_id": user.id
+    }), 200
+
 
 
 # Create a new movie (Admin only)
