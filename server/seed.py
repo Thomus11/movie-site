@@ -1,3 +1,4 @@
+seed.py
 
 from app import app, db
 from models import User, Movie, Showtime, Seat, Reservation, Payment , Admin, AdminReference
@@ -113,6 +114,6 @@ def seed_data():
         db.session.commit()
         print("Database seeded with movies, showtimes, seats, reservations, and payments.")
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     seed_data()
     print("Database seeding completed!")

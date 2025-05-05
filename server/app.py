@@ -1,289 +1,630 @@
 from flask import Flask, request, jsonify
-from flask_jwt_extended import (
-    JWTManager, create_access_token,
-    jwt_required, get_jwt_identity
-)
-from datetime import datetime, timedelta
-from sqlalchemy import or_
-from models import db, User, Movie, Showtime, Seat, Reservation, Payment, reservation_seats
+import jwt
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from resend.emails._emails import Emails
+import cloudinary
+import cloudinary.uploader
+from datetime import timedelta, datetime
+from humanize import naturaltime
+from dotenv import load_dotenv
+import os
+import re  # For manual email validation
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///movies.db'
-app.config['JWT_SECRET_KEY'] = 'your-super-secret-key-here'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
 
+# Configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f'postgresql://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@'
+    f'{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}'
+)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry  
+app.config['JWT_ALGORITHM'] = 'HS256'
+app.config['JWT_HEADER_TYPE'] = 'Bearer'
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')  # Default to development
+FLASK_APP = os.getenv('FLASK_APP', 'app.py')  # Default app entry point
+app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
+app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('CLOUDINARY_CLOUD_NAME')
+app.config['CLOUDINARY_API_KEY'] = os.getenv('CLOUDINARY_API_KEY')
+app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
+
+# Limit upload size and allowed extensions
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+# Initialize extensions
 db.init_app(app)
+migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
-# Authentication Routes
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
+    api_key=app.config['CLOUDINARY_API_KEY'],
+    api_secret=app.config['CLOUDINARY_API_SECRET']
+)
+
+# JWT Error Handlers
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    return jsonify({"message": "The token has expired"}), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return jsonify({"message": "Invalid token"}), 422
+
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    return jsonify({"message": "Request does not contain an access token"}), 401
+
+@jwt.revoked_token_loader
+def revoked_token_callback(jwt_header, jwt_payload):
+    return jsonify({"message": "The token has been revoked"}), 401
+
+# Error Handling
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"message": "Resource not found"}), 404
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({"message": "Bad request", "errors": error.description}), 400
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return jsonify({"message": "Internal server error"}), 500
+
+# Initialize Resend client
+resend = Emails()
+
+# Helper Functions
+def send_email(to_email, subject, content):
+    try:
+        message = resend.Emails.send(
+            from_='mainathomas827@gmail.com',
+            to=to_email,
+            subject=subject,
+            text=content
+        )
+        return message.id
+    except Exception as e:
+        return str(e)
+
+def validate_email(email):
+    """Validate email format using regex."""
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return False
+    return True
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# Routes
+
+# Register a new user
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-    if not data or not data.get('username') or not data.get('password'):
-        return jsonify({"error": "Username and password required"}), 400
-        
-    if User.query.filter_by(username=data['username']).first():
-        return jsonify({"error": "Username already exists"}), 400
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
 
-    user = User(username=data['username'], role=data.get('role', 'user'))
-    user.set_password(data['password'])
+    # Validation
+    if not username or len(username) > 80:
+        return jsonify({"message": "Username is required and must be <= 80 characters"}), 400
+    if not email or not validate_email(email):
+        return jsonify({"message": "Invalid email address"}), 400
+    if not password or len(password) < 6:
+        return jsonify({"message": "Password is required and must be >= 6 characters"}), 400
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({"message": "Username already exists"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"message": "Email already exists"}), 400
+
+    user = User(username=username, email=email)
+    user.set_password(password)
     db.session.add(user)
     db.session.commit()
     
+    # Send welcome email
+    send_email(email, "Welcome to Our Service", f"Hello {username}, thank you for registering!")
+
     return jsonify({"message": "User registered successfully"}), 201
 
+# Login and generate JWT token
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    user = User.query.filter_by(username=data['username']).first()
-    
-    if not user or not user.check_password(data['password']):
-        return jsonify({"error": "Invalid credentials"}), 401
-    
-    access_token = create_access_token(identity={
-        'id': user.id,
-        'username': user.username,
-        'role': user.role
-    })
-    
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
+        return jsonify({"message": "Invalid credentials"}), 401
+
+    access_token = create_access_token(identity=user.id)
     return jsonify(access_token=access_token), 200
 
-# Movie Routes
+# Promote a user to admin (Admin only)
+@app.route('/users/promote/<int:user_id>', methods=['POST'])
+@jwt_required()
+def promote_user(user_id):
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+
+    if current_user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    user = User.query.get_or_404(user_id)
+    user.role = 'admin'
+    db.session.commit()
+
+    return jsonify({"message": f"User {user.username} promoted to admin"}), 200
+
+# Create a new movie (Admin only)
+@app.route('/movies', methods=['POST'])
+@jwt_required()
+def create_movie():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    data = request.get_json()
+    title = data.get('title')
+    description = data.get('description')
+    poster_url = data.get('poster_url')
+    genre = data.get('genre')
+    release_date = data.get('release_date')
+
+    # Validation
+    if not all([title, description, poster_url, genre, release_date]):
+        return jsonify({"message": "Missing required fields"}), 400
+    if len(title) > 200:
+        return jsonify({"message": "Title must be <= 200 characters"}), 400
+    if len(description) > 1000:
+        return jsonify({"message": "Description must be <= 1000 characters"}), 400
+    if len(genre) > 50:
+        return jsonify({"message": "Genre must be <= 50 characters"}), 400
+    try:
+        release_date = datetime.strptime(release_date, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"message": "Invalid release date format. Use YYYY-MM-DD"}), 400
+
+    movie = Movie(
+        title=title,
+        description=description,
+        poster_url=poster_url,
+        genre=genre,
+        release_date=release_date
+    )
+    db.session.add(movie)
+    db.session.commit()
+
+    return jsonify({"message": "Movie created successfully", "movie_id": movie.id}), 201
+
+# Update a movie (Admin only)
+@app.route('/movies/<int:movie_id>', methods=['PUT'])
+@jwt_required()
+def update_movie(movie_id):
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    movie = Movie.query.get_or_404(movie_id)
+    data = request.get_json()
+
+    # Validation
+    if 'title' in data and len(data['title']) > 200:
+        return jsonify({"message": "Title must be <= 200 characters"}), 400
+    if 'description' in data and len(data['description']) > 1000:
+        return jsonify({"message": "Description must be <= 1000 characters"}), 400
+    if 'genre' in data and len(data['genre']) > 50:
+        return jsonify({"message": "Genre must be <= 50 characters"}), 400
+    if 'release_date' in data:
+        try:
+            data['release_date'] = datetime.strptime(data['release_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({"message": "Invalid release date format. Use YYYY-MM-DD"}), 400
+
+    movie.title = data.get('title', movie.title)
+    movie.description = data.get('description', movie.description)
+    movie.poster_url = data.get('poster_url', movie.poster_url)
+    movie.genre = data.get('genre', movie.genre)
+    movie.release_date = data.get('release_date', movie.release_date)
+
+    db.session.commit()
+
+    return jsonify({"message": "Movie updated successfully"}), 200
+
+# Delete a movie (Admin only)
+@app.route('/movies/<int:movie_id>', methods=['DELETE'])
+@jwt_required()
+def delete_movie(movie_id):
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    movie = Movie.query.get_or_404(movie_id)
+    db.session.delete(movie)
+    db.session.commit()
+
+    return jsonify({"message": "Movie deleted successfully"}), 200
+
+# Fetch movies by genre and/or title
+@app.route('/movies/search', methods=['GET'])
+@jwt_required()
+def search_movies():
+    genre = request.args.get('genre')
+    title = request.args.get('title')
+
+    query = Movie.query
+    if genre:
+        query = query.filter(Movie.genre.ilike(f"%{genre}%"))
+    if title:
+        query = query.filter(Movie.title.ilike(f"%{title}%"))
+
+    movies = query.all()
+    return jsonify([{
+        **movie.to_dict(),
+        "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
+    } for movie in movies]), 200
+
+# Get paginated list of movies
 @app.route('/movies', methods=['GET'])
 @jwt_required()
 def get_movies():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
-    movies = Movie.query.paginate(page=page, per_page=per_page)
-    
+
+    pagination = Movie.query.paginate(page=page, per_page=per_page, error_out=False)
+    movies = pagination.items
+
     return jsonify({
-        'movies': [movie.to_dict() for movie in movies.items],
-        'total': movies.total,
-        'pages': movies.pages,
-        'current_page': movies.page
-    })
+        "movies": [{
+            **movie.to_dict(),
+            "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
+        } for movie in movies],
+        "total_pages": pagination.pages,
+        "current_page": pagination.page
+    }), 200
 
-@app.route('/movies', methods=['POST'])
+# Upload a movie poster (Admin only) with file validation
+@app.route('/upload-poster', methods=['POST'])
 @jwt_required()
-def create_movie():
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
-    
-    data = request.get_json()
-    movie = Movie(
-        title=data['title'],
-        description=data.get('description'),
-        poster_url=data.get('poster_url'),
-        genre=data.get('genre')
-    )
-    db.session.add(movie)
-    db.session.commit()
-    
-    return jsonify(movie.to_dict()), 201
+def upload_poster():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
 
-@app.route('/movies/<int:movie_id>', methods=['PUT'])
-@jwt_required()
-def update_movie(movie_id):
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
-    
-    movie = Movie.query.get_or_404(movie_id)
-    data = request.get_json()
-    
-    movie.title = data.get('title', movie.title)
-    movie.description = data.get('description', movie.description)
-    movie.poster_url = data.get('poster_url', movie.poster_url)
-    movie.genre = data.get('genre', movie.genre)
-    
-    db.session.commit()
-    return jsonify(movie.to_dict())
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
 
-@app.route('/movies/<int:movie_id>', methods=['DELETE'])
-@jwt_required()
-def delete_movie(movie_id):
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
-    
-    movie = Movie.query.get_or_404(movie_id)
-    db.session.delete(movie)
-    db.session.commit()
-    
-    return jsonify({"message": "Movie deleted"})
+    if 'file' not in request.files:
+        return jsonify({"message": "No file part"}), 400
 
-@app.route('/movies/search', methods=['GET'])
-@jwt_required()
-def search_movies():
-    query = request.args.get('q', '')
-    movies = Movie.query.filter(
-        or_(
-            Movie.title.ilike(f'%{query}%'),
-            Movie.genre.ilike(f'%{query}%')
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"message": "No selected file"}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({"message": "Invalid file type"}), 400
+
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file,
+            resource_type="image",
+            allowed_formats=list(ALLOWED_EXTENSIONS)
         )
-    ).all()
+        return jsonify({"url": upload_result['secure_url']}), 200
+    except Exception as e:
+        app.logger.error(f"Cloudinary upload failed: {str(e)}")
+        return jsonify({"message": "File upload failed"}), 500
     
-    return jsonify([movie.to_dict() for movie in movies])
-
-# Showtime Routes
+# Create a showtime (Admin only)
 @app.route('/showtimes', methods=['POST'])
 @jwt_required()
 def create_showtime():
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
-    
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
     data = request.get_json()
+    movie_id = data.get('movie_id')
+    start_time = data.get('start_time')
+    duration = data.get('duration')
+
+    if not all([movie_id, start_time, duration]):
+        return jsonify({"message": "Missing required fields"}), 400
+    try:
+        start_time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return jsonify({"message": "Invalid start time format. Use YYYY-MM-DD HH:MM:SS"}), 400
+
     showtime = Showtime(
-        movie_id=data['movie_id'],
-        start_time=datetime.fromisoformat(data['start_time'])
+        movie_id=movie_id,
+        start_time=start_time,
+        duration=duration
     )
     db.session.add(showtime)
     db.session.commit()
-    
-    return jsonify(showtime.to_dict()), 201
 
+    return jsonify({
+        "message": "Showtime created successfully", 
+        "showtime_id": showtime.id,
+        "start_time": naturaltime(showtime.start_time)
+    }), 201
+
+# Get movies and showtimes for a specific date
 @app.route('/showtimes/search', methods=['GET'])
 @jwt_required()
 def search_showtimes():
-    date_str = request.args.get('date')
-    try:
-        date = datetime.fromisoformat(date_str).date()
-    except ValueError:
-        return jsonify({"error": "Invalid date format"}), 400
-    
-    showtimes = Showtime.query.filter(
-        db.func.date(Showtime.start_time) == date
-    ).all()
-    
-    return jsonify([showtime.to_dict() for showtime in showtimes])
+    date = request.args.get('date')
+    if not date:
+        return jsonify({"message": "Date parameter is required"}), 400
 
-# Seat Routes
+    showtimes = Showtime.query.filter(Showtime.start_time.like(f"{date}%")).all()
+    formatted_showtimes = [
+        {
+            "id": showtime.id,
+            "movie_title": showtime.movie.title,
+            "start_time": showtime.start_time.isoformat(),
+            "available_seats": len([seat for seat in showtime.seats if not seat.is_reserved])
+        }
+        for showtime in showtimes
+    ]
+
+    return jsonify(formatted_showtimes), 200
+
+# Create seats for a showtime (Admin only)
 @app.route('/seats', methods=['POST'])
 @jwt_required()
 def create_seats():
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
-    
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
     data = request.get_json()
-    seats = [Seat(seat_number=n, showtime_id=data['showtime_id']) 
-            for n in data['seat_numbers']]
+    showtime_id = data.get('showtime_id')
+    seat_numbers = data.get('seat_numbers')  # List of seat numbers (e.g., ['A1', 'A2'])
+
+    if not all([showtime_id, seat_numbers]):
+        return jsonify({"message": "Missing required fields"}), 400
+
+    seats = []
+    for seat_number in seat_numbers:
+        row, column = seat_number[0], int(seat_number[1:])
+        seat = Seat(
+            seat_number=seat_number,
+            row=row,
+            column=column,
+            showtime_id=showtime_id
+        )
+        seats.append(seat)
+
     db.session.add_all(seats)
     db.session.commit()
-    
-    return jsonify({"message": f"{len(seats)} seats created"}), 201
 
-# Reservation Routes
-@app.route('/reservations', methods=['POST'])
+    return jsonify({"message": "Seats created successfully"}), 201
+
+# Create Reservation
+@app.route('/reservations/<int:reservation_id>', methods=['PUT'])
 @jwt_required()
-def create_reservation():
-    user_id = get_jwt_identity()['id']
+def update_reservation(reservation_id):
     data = request.get_json()
-    
-    # Check seat availability
-    seats = Seat.query.filter(
-        Seat.id.in_(data['seat_ids']),
-        Seat.is_reserved == False
-    ).all()
-    
-    if len(seats) != len(data['seat_ids']):
-        return jsonify({"error": "Some seats unavailable"}), 400
-    
-    # Create reservation
-    reservation = Reservation(
-        user_id=user_id,
-        showtime_id=data['showtime_id']
-    )
-    reservation.seats = seats
-    
-    # Mark seats as reserved
-    for seat in seats:
-        seat.is_reserved = True
-    
-    # Create payment
-    payment = Payment(
-        user_id=user_id,
-        reservation_id=reservation.id,
-        amount=data['amount'],
-        payment_method=data['payment_method'],
-        status='completed'
-    )
-    
-    db.session.add_all([reservation, payment])
-    db.session.commit()
-    
-    return jsonify({
-        "reservation": reservation.to_dict(),
-        "payment": payment.to_dict()
-    }), 201
+    user_id = get_jwt_identity()
+    showtime_id = data.get('showtime_id')
+    seat_ids = data.get('seat_ids')
+    payment_method = data.get('payment_method', 'credit_card')  # Default payment method
 
+    # Validate required fields
+    if not all([showtime_id, seat_ids]):
+        return jsonify({"message": "Missing required fields"}), 400
+
+    # Fetch the existing reservation
+    reservation = Reservation.query.filter_by(id=reservation_id, user_id=user_id).first()
+    if not reservation:
+        return jsonify({"message": "Reservation not found"}), 404
+
+    # Validate seats availability
+    seats = Seat.query.filter(Seat.id.in_(seat_ids), Seat.is_reserved == False).all()
+    if len(seats) != len(seat_ids):
+        return jsonify({"message": "One or more seats are already reserved"}), 400
+
+    # Calculate total amount
+    seat_price = 10.00  # Default seat price
+    total_amount = len(seats) * seat_price
+
+    # Start transaction
+    try:
+        # Update reservation details
+        reservation.showtime_id = showtime_id
+        reservation.seats = seats  # Update seats
+        db.session.add(reservation)
+        db.session.flush()  # Get reservation ID for payment
+
+        # Update payment record
+        payment = reservation.payment
+        payment.amount = total_amount
+        payment.payment_method = payment_method
+        payment.status = 'pending'  # Reset status for new payment processing
+        db.session.add(payment)
+
+        # Process payment based on method
+        if payment_method == 'credit_card':
+            try:
+                charge = process_stripe_payment(total_amount, data.get('payment_token'))
+                payment.status = 'completed'
+                payment.transaction_id = charge.id
+                reservation.status = 'confirmed'
+            except Exception as e:
+                raise Exception(f"Credit card payment failed: {str(e)}")
+
+        elif payment_method == 'paypal':
+            payment.status = 'processing'
+            reservation.status = 'awaiting_payment'
+
+        elif payment_method == 'cash':
+            payment.status = 'pending'
+            reservation.status = 'awaiting_verification'
+
+        else:
+            raise Exception("Unsupported payment method")
+
+        # Mark seats as reserved
+        for seat in seats:
+            seat.is_reserved = True
+
+        db.session.commit()
+
+        # Prepare response data
+        response_data = {
+            "message": "Reservation updated successfully",
+            "reservation_id": reservation.id,
+            "payment_status": payment.status,
+            "seats": [seat.seat_number for seat in seats],
+            "total_amount": total_amount
+        }
+
+        # Send confirmation email if payment completed
+        if payment.status == 'completed':
+            user = User.query.get(user_id)
+            showtime = Showtime.query.get(showtime_id)
+            movie = showtime.movie
+
+            content = (
+                f"Hello {user.username},\n\n"
+                f"Your reservation for '{movie.title}' on {showtime.start_time.strftime('%Y-%m-%d %H:%M')} has been updated.\n"
+                f"Seats: {', '.join([seat.seat_number for seat in seats])}\n"
+                f"Amount paid: ${total_amount:.2f}\n"
+                f"Payment method: {payment_method}\n\n"
+                "Thank you for choosing our cinema!"
+            )
+            send_email(user.email, "Reservation Update Confirmation", content)
+
+            return jsonify(response_data), 200
+
+        # Different response for pending payments
+        response_data["message"] = "Payment processing required"
+        return jsonify(response_data), 202
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Reservation update failed: {str(e)}"}), 400
+
+
+# Cancel a reservation (User only)
 @app.route('/reservations/<int:reservation_id>', methods=['DELETE'])
 @jwt_required()
 def cancel_reservation(reservation_id):
-    current_user = get_jwt_identity()
+    user_id = get_jwt_identity()
     reservation = Reservation.query.get_or_404(reservation_id)
-    
-    if reservation.user_id != current_user['id'] and current_user['role'] != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    # Release seats
+
+    if reservation.user_id != user_id:
+        return jsonify({"message": "Unauthorized to cancel this reservation"}), 403
+
+    if reservation.timestamp < datetime.utcnow():
+        return jsonify({"message": "Cannot cancel past reservations"}), 400
+
+    # Mark seats as unreserved
     for seat in reservation.seats:
         seat.is_reserved = False
-    
-    # Update payment status
-    if reservation.payment:
-        reservation.payment.status = 'refunded'
-    
+
     db.session.delete(reservation)
     db.session.commit()
-    
-    return jsonify({"message": "Reservation cancelled"})
 
-# Payment Routes
-@app.route('/payments/<int:payment_id>', methods=['GET'])
-@jwt_required()
-def get_payment(payment_id):
-    current_user = get_jwt_identity()
-    payment = Payment.query.get_or_404(payment_id)
-    
-    if payment.user_id != current_user['id'] and current_user['role'] != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    return jsonify(payment.to_dict())
+    return jsonify({"message": "Reservation cancelled successfully"}), 200
 
-@app.route('/payments/<int:payment_id>/status', methods=['PUT'])
-@jwt_required()
-def update_payment_status(payment_id):
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
-    
-    payment = Payment.query.get_or_404(payment_id)
-    new_status = request.json.get('status')
-    
-    if new_status not in ['pending', 'completed', 'failed', 'refunded']:
-        return jsonify({"error": "Invalid status"}), 400
-    
-    payment.status = new_status
-    db.session.commit()
-    
-    return jsonify(payment.to_dict())
-
-# Admin Routes
+# Admin reporting: All reservations, capacity, and revenue
 @app.route('/admin/report', methods=['GET'])
 @jwt_required()
 def admin_report():
-    if get_jwt_identity()['role'] != 'admin':
-        return jsonify({"error": "Admin privileges required"}), 403
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
     
+    #Fetches all reservations
+    reservations = Reservation.query.all()
+    
+    #prepare the report  data
     report = {
-        "total_users": User.query.count(),
-        "total_movies": Movie.query.count(),
-        "total_reservations": Reservation.query.count(),
-        "total_revenue": db.session.query(db.func.sum(Payment.amount)).filter(
-            Payment.status == 'completed'
-        ).scalar() or 0
+        "total_reservations": len(reservations),
+        "capacity_utilization": sum(len(r.seats) for r in reservations),
+        "revenue": len(reservations) * 10  # Example: $10 per reservation
     }
+
+    return jsonify(report), 200
+
+# Admin view of all reservations
+@app.route('/admin/reservations', methods=['GET'])
+@jwt_required()
+def admin_view_reservations():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
+
+    reservations = Reservation.query.all()
+
+    reservation_data = [
+        {
+            "reservation_id": reservation.id,
+            "user_id": reservation.user_id,
+            "showtime": naturaltime(reservation.showtime.start_time),
+            "seats": [seat.seat_number for seat in reservation.seats],
+            "total_amount": len(reservation.seats) * 10  # Example amount calculation
+        }
+        for reservation in reservations
+    ]
+
+    return jsonify(reservation_data), 200
+
+
+@app.route('/')
+def index():
+    return """
+    <h1>Movie Site API</h1>
+    <p>Welcome to the Movie Site API. Below are some available endpoints:</p>
+    <ul>
+        <li>POST /register - Register a new user</li>
+        <li>POST /login - Login and get JWT token</li>
+        <li>GET /movies - Get paginated list of movies (requires JWT)</li>
+        <li>POST /movies - Create a new movie (admin only)</li>
+        <li>PUT /movies/<movie_id> - Update a movie (admin only)</li>
+        <li>DELETE /movies/<movie_id> - Delete a movie (admin only)</li>
+        <li>GET /movies/search - Search movies by genre/title (requires JWT)</li>
+        <li>POST /showtimes - Create a showtime (admin only)</li>
+        <li>GET /showtimes/search - Search showtimes by date (requires JWT)</li>
+        <li>POST /seats - Create seats for a showtime (admin only)</li>
+        <li>POST /reservations - Create a reservation (requires JWT)</li>
+        <li>DELETE /reservations/<reservation_id> - Cancel a reservation (requires JWT)</li>
+        <li>GET /admin/report - Admin report (admin only)</li>
+    </ul>
+    <p>Use an API client like Postman or Thunder Client to test these endpoints with appropriate HTTP methods and headers.</p>
+    """
     
-    return jsonify(report)
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
