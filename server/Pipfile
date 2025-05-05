@@ -4,8 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-<<<<<<< HEAD
-=======
+
 flask = "*"
 flask-sqlalchemy = "*"
 sqlalchemy-serializer = "*"
@@ -14,7 +13,7 @@ resend = "*"
 cloudinary = "*"
 python-dotenv = "*"
 humanize = "*"
->>>>>>> fahmy
+
 
 [dev-packages]
 
