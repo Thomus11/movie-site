@@ -12,11 +12,10 @@ from datetime import timedelta, datetime
 from humanize import naturaltime
 from dotenv import load_dotenv
 import os
-import re  # For manual email validation
-import stripe  # Added stripe import for payment processing
-from flask_migrate import Migrate
+import re  
+import stripe 
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+
 
 load_dotenv()
 
@@ -51,8 +50,7 @@ def process_stripe_payment(amount, payment_token):
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f'postgresql://{os.getenv("thomas")}:{os.getenv("fluffy254")}@'
-    f'{os.getenv("localhost")}:{os.getenv("5432")}/{os.getenv("cinema_db")}'
+    f'postgresql://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
@@ -80,9 +78,11 @@ jwt = JWTManager(app)
 
 # Configure Cloudinary
 cloudinary.config(
-  cloud_name='dsrivrpjm',
-  api_key='338437774886132',
-  api_secret='p4_1z6TU8AEIOsXfO8MPnNKef4E'
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+
+ 
 )
 
 # Upload a local image
