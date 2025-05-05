@@ -6,14 +6,16 @@ name = "pypi"
 [packages]
 flask = "*"
 flask-sqlalchemy = "*"
+psycopg2-binary = "*"
+flask-cors = "*"
 flask-migrate = "*"
 flask-jwt-extended = "*"
+cloudinary = "*"
 python-dotenv = "*"
 humanize = "*"
-cloudinary = "*"
 resend = "*"
-psycopg2-binary = "*"
 sqlalchemy-serializer = "*"
+stripe = "*"
 
 [dev-packages]
 

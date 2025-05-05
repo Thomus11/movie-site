@@ -1,0 +1,268 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-06-01T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2024.1.0",
+  "resources": [
+    {
+      "_id": "req_register",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000000,
+      "created": 1680000000000,
+      "url": "http://127.0.0.1:5000/register",
+      "name": "Register User",
+      "description": "Register a new user",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"username\":\"testuser\",\"email\":\"testuser@example.com\",\"password\":\"password123\"}"
+      },
+      "parameters": [],
+      "headers": [],
+      "_type": "request"
+    },
+    {
+      "_id": "req_login",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000001,
+      "created": 1680000000001,
+      "url": "http://127.0.0.1:5000/login",
+      "name": "Login User",
+      "description": "Login and get JWT token",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"username\":\"testuser\",\"password\":\"password123\"}"
+      },
+      "parameters": [],
+      "headers": [],
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_movies",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000002,
+      "created": 1680000000002,
+      "url": "http://127.0.0.1:5000/movies",
+      "name": "Get Movies",
+      "description": "Get paginated list of movies (requires JWT)",
+      "method": "GET",
+      "parameters": [
+        {
+          "name": "page",
+          "value": "1"
+        },
+        {
+          "name": "per_page",
+          "value": "10"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_movie",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000003,
+      "created": 1680000000003,
+      "url": "http://127.0.0.1:5000/movies",
+      "name": "Create Movie",
+      "description": "Create a new movie (admin only)",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"title\":\"New Movie\",\"description\":\"Description of new movie\",\"poster_url\":\"https://via.placeholder.com/150\",\"genre\":\"Action\",\"release_date\":\"2024-06-01\"}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_update_movie",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000004,
+      "created": 1680000000004,
+      "url": "http://127.0.0.1:5000/movies/1",
+      "name": "Update Movie",
+      "description": "Update a movie (admin only)",
+      "method": "PUT",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"title\":\"Updated Movie Title\"}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_delete_movie",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000005,
+      "created": 1680000000005,
+      "url": "http://127.0.0.1:5000/movies/1",
+      "name": "Delete Movie",
+      "description": "Delete a movie (admin only)",
+      "method": "DELETE",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_search_movies",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000006,
+      "created": 1680000000006,
+      "url": "http://127.0.0.1:5000/movies/search?genre=Action&title=Movie",
+      "name": "Search Movies",
+      "description": "Search movies by genre/title (requires JWT)",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_showtime",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000007,
+      "created": 1680000000007,
+      "url": "http://127.0.0.1:5000/showtimes",
+      "name": "Create Showtime",
+      "description": "Create a showtime (admin only)",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"movie_id\":1,\"start_time\":\"2024-06-10 19:00:00\",\"duration\":120}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_search_showtimes",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000008,
+      "created": 1680000000008,
+      "url": "http://127.0.0.1:5000/showtimes/search?date=2024-06-10",
+      "name": "Search Showtimes",
+      "description": "Search showtimes by date (requires JWT)",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_seats",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000009,
+      "created": 1680000000009,
+      "url": "http://127.0.0.1:5000/seats",
+      "name": "Create Seats",
+      "description": "Create seats for a showtime (admin only)",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"showtime_id\":1,\"seat_numbers\":[\"A1\",\"A2\",\"A3\"]}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_reservation",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000010,
+      "created": 1680000000010,
+      "url": "http://127.0.0.1:5000/reservations",
+      "name": "Create Reservation",
+      "description": "Create a reservation (requires JWT)",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"showtime_id\":1,\"seat_ids\":[1,2,3],\"payment_method\":\"credit_card\",\"payment_token\":\"tok_visa\"}"
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_cancel_reservation",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000011,
+      "created": 1680000000011,
+      "url": "http://127.0.0.1:5000/reservations/1",
+      "name": "Cancel Reservation",
+      "description": "Cancel a reservation (requires JWT)",
+      "method": "DELETE",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_admin_report",
+      "parentId": "wrk_movie_site",
+      "modified": 1680000000012,
+      "created": 1680000000012,
+      "url": "http://127.0.0.1:5000/admin/report",
+      "name": "Admin Report",
+      "description": "Admin report (admin only)",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer <your_access_token>"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "wrk_movie_site",
+      "parentId": null,
+      "modified": 1680000000000,
+      "created": 1680000000000,
+      "name": "Movie Site API",
+      "description": "Workspace for Movie Site API routes",
+      "_type": "workspace"
+    }
+  ]
+}

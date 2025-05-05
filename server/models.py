@@ -16,13 +16,13 @@ class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(512), unique=True, nullable=False)
-    email = db.Column(db.String(512), unique=True, nullable=False)  # Added email field
+    email = db.Column(db.String(512), unique=True, nullable=False)  
     password_hash = db.Column(db.String(256))
     role = db.Column(db.String(50), default='user')  # user or admin
 
     reservations = db.relationship('Reservation', backref='user', cascade="all, delete")
 
-    serialize_rules = ('-password_hash', '-reservations.user',)
+    serialize_rules = ('-password_hash', '-reservations.user', '-reservations.seats', '-reservations.showtime',)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -41,7 +41,7 @@ class Movie(db.Model, SerializerMixin):
 
     showtimes = db.relationship('Showtime', backref='movie', cascade="all, delete")
 
-    serialize_rules = ('-showtimes.movie',)
+    serialize_rules = ('-showtimes.movie', '-showtimes.reservations', '-showtimes.seats',)
 
 class Showtime(db.Model, SerializerMixin):
     __tablename__ = 'showtimes'
@@ -53,22 +53,22 @@ class Showtime(db.Model, SerializerMixin):
     reservations = db.relationship('Reservation', backref='showtime', cascade="all, delete")
     seats = db.relationship('Seat', backref='showtime', cascade="all, delete")
 
-    serialize_rules = ('-reservations.showtime', '-seats.showtime',)
+    serialize_rules = ('-reservations.showtime', '-seats.showtime', '-reservations.seats', '-seats.reservations',)
 
 class Seat(db.Model, SerializerMixin):
     __tablename__ = 'seats'
     id = db.Column(db.Integer, primary_key=True)
-    seat_number = db.Column(db.String(10), nullable=False)  # Added length constraint
-    row = db.Column(db.String(1), nullable=False)  # Added row identifier (e.g., A, B, C)
-    column = db.Column(db.Integer, nullable=False)  # Added column number
+    seat_number = db.Column(db.String(10), nullable=False)
+    row = db.Column(db.String(1), nullable=False)
+    column = db.Column(db.Integer, nullable=False)
     is_reserved = db.Column(db.Boolean, default=False)
     showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
 
     __table_args__ = (
         db.UniqueConstraint('seat_number', 'showtime_id', name='unique_seat_per_showtime'),
-    )  # Ensures seat uniqueness per showtime
+    )
 
-    serialize_rules = ('-showtime.seats',)
+    serialize_rules = ('-showtime.seats', '-showtime.reservations', '-seats.reservations',)
 
 class Reservation(db.Model, SerializerMixin): 
     __tablename__ = 'reservations'
@@ -80,7 +80,7 @@ class Reservation(db.Model, SerializerMixin):
     payment = db.relationship('Payment', backref='reservation', uselist=False, cascade="all, delete-orphan")
     seats = db.relationship('Seat', secondary=reservation_seats)
 
-    serialize_rules = ('-user.reservations', '-showtime.reservations', '-payment.reservation')
+    serialize_rules = ('-user.reservations', '-showtime.reservations', '-payment.reservation', '-seats.reservations', '-reservation.seats')
 
 class Admin(db.Model, SerializerMixin):
     __tablename__ = 'admins'
@@ -107,13 +107,13 @@ class Payment(db.Model, SerializerMixin):
     reservation_id = db.Column(db.Integer, db.ForeignKey('reservations.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     payment_date = db.Column(db.DateTime, default=datetime.utcnow)
-    payment_method = db.Column(db.String(50), nullable=False)  # e.g., 'credit_card', 'paypal', etc.
-    status = db.Column(db.String(20), default='pending')  # e.g., 'completed', 'failed', 'pending'
+    payment_method = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship('User', backref='payments')
 
-    serialize_rules = ('-user.payments', '-reservation.payment',)   
+    serialize_rules = ('-user.payments', '-reservation.payment', '-payment.reservation')   
 
 class AdminReference(db.Model, SerializerMixin):
     __tablename__ = 'admin_references'

@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import jwt
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
@@ -12,11 +12,39 @@ from humanize import naturaltime
 from dotenv import load_dotenv
 import os
 import re  # For manual email validation
+import stripe  # Added stripe import for payment processing
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
+
+# Configure Stripe with secret key from environment variables
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+
+# Define the process_stripe_payment function
+def process_stripe_payment(amount, payment_token):
+    """
+    Process a payment using Stripe API.
+
+    :param amount: Amount in dollars to charge
+    :param payment_token: Stripe payment token (e.g., from frontend)
+    :return: Stripe charge object
+    """
+    try:
+        # Stripe expects amount in cents
+        amount_cents = int(amount * 100)
+        charge = stripe.Charge.create(
+            amount=amount_cents,
+            currency='usd',
+            source=payment_token,
+            description='Movie reservation payment'
+        )
+        return charge
+    except stripe.error.StripeError as e:
+        # Handle Stripe errors
+        raise Exception(f"Stripe error: {str(e)}")
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = (
@@ -29,6 +57,8 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry
 app.config['JWT_ALGORITHM'] = 'HS256'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
+app.config["JWT_IDENTITY_CLAIM"] = "sub"  # Explicitly use 'sub' as identity claim
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')  # Default to development
 FLASK_APP = os.getenv('FLASK_APP', 'app.py')  # Default app entry point
 app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
@@ -156,16 +186,28 @@ def login():
     access_token = create_access_token(identity=user.id)
     return jsonify(access_token=access_token), 200
 
-# Promote a user to admin (Admin only)
-@app.route('/users/promote/<int:user_id>', methods=['POST'])
+#Admin route
+@app.route('/admin', methods=['GET'])
 @jwt_required()
-def promote_user(user_id):
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
+def admin_dashboard():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
 
-    if current_user.role != 'admin':
+    if user.role != 'admin':
         return jsonify({"message": "Admin access required"}), 403
 
+    return jsonify({
+        "message": f"Welcome Admin {user.username}",
+        "admin": True,
+        "email": user.email,
+        "user_id": user.id
+    }), 200
+
+
+# Promote a user to admin (Admin only)
+@app.route('/users/promote/<int:user_id>', methods=['POST'])
+def promote_user(user_id):
+    # Temporary endpoint without auth for testing only
     user = User.query.get_or_404(user_id)
     user.role = 'admin'
     db.session.commit()
