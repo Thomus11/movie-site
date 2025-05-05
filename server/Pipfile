@@ -4,18 +4,23 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-
+=======
 flask = "*"
 flask-sqlalchemy = "*"
-sqlalchemy-serializer = "*"
+flask-migrate = "*"
 flask-jwt-extended = "*"
-resend = "*"
-cloudinary = "*"
 python-dotenv = "*"
 humanize = "*"
-
+cloudinary = "*"
+resend = "*"
+psycopg2-binary = "*"
+sqlalchemy-serializer = "*"
+>>>>>>> master
 
 [dev-packages]
 
 [requires]
-python_version = "3.8"
+=======
+
+python_version = "3.10"
+>>>>>>> master
