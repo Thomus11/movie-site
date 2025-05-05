@@ -73,3 +73,46 @@ class Reservation(db.Model, SerializerMixin):
     seats = db.relationship('Seat', secondary=reservation_seats)
 
     serialize_rules = ('-user.reservations', '-showtime.reservations',)
+
+class Admin(db.Model, SerializerMixin):
+    __tablename__ = 'admins'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    # Relationship to AdminReference
+    references = db.relationship('AdminReference', backref='admin', cascade="all, delete")
+
+    serialize_rules = ('-password_hash', '-references.admin',)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+class Payment(db.Model, SerializerMixin):
+    __tablename__ = 'payments'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    reservation_id = db.Column(db.Integer, db.ForeignKey('reservations.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    payment_date = db.Column(db.DateTime, default=datetime.utcnow)
+    payment_method = db.Column(db.String(50), nullable=False)  # e.g., 'credit_card', 'paypal', etc.
+    status = db.Column(db.String(20), default='pending')  # e.g., 'completed', 'failed', 'pending'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='payments')
+    reservation = db.relationship('Reservation', backref='payments')
+
+    serialize_rules = ('-user.payments', '-reservation.payments',)   
+
+class AdminReference(db.Model, SerializerMixin):
+    __tablename__ = 'admin_references'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('admins.id'))
+    reference_text = db.Column(db.String)
+
+    serialize_rules = ('-admin.references',)  
+    
