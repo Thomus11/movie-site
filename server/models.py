@@ -110,6 +110,9 @@ class AdminReference(db.Model, SerializerMixin):
 
     admins = db.relationship('Admin', back_populates='reference', cascade='all, delete')
 
+    serialize_rules = (
+        '-admins.reference',
+    )
 
 class Admin(db.Model, SerializerMixin):
     __tablename__ = 'admins'
@@ -118,4 +121,8 @@ class Admin(db.Model, SerializerMixin):
     reference_id = db.Column(db.Integer, db.ForeignKey('admin_references.id'), nullable=False)
 
     reference = db.relationship('AdminReference', back_populates='admins')
+
+    serialize_rules = (
+        '-reference.admins',
+    )
 
