@@ -1,9 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import  HomePage  from './Pages/home/HomePage';
+import UserDashboard from './Pages/user/UserDashboard';
+import NotFound from './Pages/NotFound';
 import ProtectedRoute from './Pages/ProtectedRoute';
 
-
-import NotFound from './Pages/NotFound';
 
 function App() {
   return (

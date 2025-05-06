@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import Navbar from "./Navbar";
-import Carousel from "./Carousel";
-import AuthModal from "../components/AuthModal";
-import AvailableNow from "./AvailableNow";
-import ComingSoon from "./ComingSoon";
-import Footer from "./Footer";
-import Dashboard from "./components/UserDashboard"
-import AdminAuthPage from "../components/AdminAuthPage";
-import AdminDashboard from "../components/AdminDashboard";
+import Navbar from "../Components/Navbar";
+import Carousel from "../components/ui/MovieCarousel";
+import AuthModal from "../components/auth/AuthModal";
+import AvailableNow from "../components/movie/AvailableMovies";
+import ComingSoon from "../components/movie/ComingSoonMovies";
+import Footer from "../components/ui/Footer";
+import Dashboard from "../Pages/user/UserDashboard";
+import AdminAuthPage from "../Pages/admin/AdminAuthPage";
+import AdminDashboard from "../Pages/admin/AdminDashboard";
 import { useNavigate } from "react-router-dom";
 
 
