@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from models import db, User, Movie, Showtime, Seat, Reservation
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from resend.emails._emails import Emails
@@ -12,14 +13,19 @@ from flask_cors import CORS
 import os
 import re  # For manual email validation
 
-# Load environment variables
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 load_dotenv()
+
 
 app = Flask(__name__)
 CORS(app)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cinema.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:12345@localhost/cinema_pg'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cinema.db'
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
 app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('CLOUDINARY_CLOUD_NAME')
@@ -29,6 +35,7 @@ app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
 # Initialize extensions
 db.init_app(app)
 jwt = JWTManager(app)
+migrate = Migrate(app, db)
 
 # JWT Error Handlers
 @jwt.expired_token_loader
