@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from server.models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
+from models import db, User, Movie, Showtime, Seat, Reservation, Admin, Payment, AdminReference
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from resend.emails._emails import Emails
 import cloudinary
@@ -89,6 +89,28 @@ cloudinary.config(
 response = cloudinary.uploader.upload("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQq-nmAi-josdg_AUhzjux6A0dMcFLxDm2TTw&s")
 
 print("Uploaded Image URL:", response['url'])
+
+@app.route('/test-upload', methods=['GET'])
+def test_upload():
+    # URL of the image you want to upload
+    image_url = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQq-nmAi-josdg_AUhzjux6A0dMcFLxDm2TTw&s'
+
+    try:
+        # Upload the image from the URL to Cloudinary
+        response = cloudinary.uploader.upload(image_url)
+
+        # Return the URL of the uploaded image
+        return jsonify({
+            'status': 'success',
+            'message': 'Image uploaded successfully',
+            'url': response['url']
+        })
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 # JWT Error Handlers
 @jwt.expired_token_loader
@@ -366,26 +388,22 @@ def upload_poster():
         return jsonify({"message": "Admin access required"}), 403
 
     if 'file' not in request.files:
-        return jsonify({"message": "No file part"}), 400
+        return jsonify({"message": "No file part in the request"}), 400
 
     file = request.files['file']
+
     if file.filename == '':
         return jsonify({"message": "No selected file"}), 400
 
-    if not allowed_file(file.filename):
-        return jsonify({"message": "Invalid file type"}), 400
+    if file and allowed_file(file.filename):
+        try:
+            upload_result = cloudinary.uploader.upload(file)
+            return jsonify({"url": upload_result['secure_url']}), 200
+        except Exception as e:
+            return jsonify({"message": f"Upload failed: {str(e)}"}), 500
+    else:
+        return jsonify({"message": "File type not allowed"}), 400
 
-    try:
-        upload_result = cloudinary.uploader.upload(
-            file,
-            resource_type="image",
-            allowed_formats=list(ALLOWED_EXTENSIONS)
-        )
-        return jsonify({"url": upload_result['secure_url']}), 200
-    except Exception as e:
-        app.logger.error(f"Cloudinary upload failed: {str(e)}")
-        return jsonify({"message": "File upload failed"}), 500
-    
 # Create a showtime (Admin only)
 @app.route('/showtimes', methods=['POST'])
 @jwt_required()
