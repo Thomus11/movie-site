@@ -5,8 +5,10 @@ from flask_migrate import Migrate
 from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from resend.emails._emails import Emails
+import resend
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 from datetime import timedelta, datetime
 from humanize import naturaltime
 from dotenv import load_dotenv
@@ -113,7 +115,8 @@ def internal_server_error(error):
     return jsonify({"message": "Internal server error"}), 500
 
 # Initialize Resend client
-resend = Emails()
+resend.api_key = os.getenv("RESEND_API_KEY")
+emails = Emails()
 
 # Helper Functions
 def send_email(to_email, subject, content):
@@ -137,8 +140,28 @@ def validate_email(email):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+@app.route('/send-email', methods=['POST'])
+@jwt_required()
+def send_email_route():
+    data = request.get_json()
+    to = data.get('to')
+    subject = data.get('subject')
+    content = data.get('content')
 
-# Routes
+    # Validate
+    if not to or not validate_email(to):
+        return jsonify({'message': 'Invalid recipient email'}), 400
+
+    if not subject or not content:
+        return jsonify({'message': 'Subject and content are required'}), 400
+
+    # Send email
+    result = send_email(to, subject, content)
+
+    if "error" in str(result).lower():
+        return jsonify({'message': 'Failed to send email', 'error': result}), 500
+
+    return jsonify({'message': 'Email sent successfully', 'id': result}), 200
 
 # Register a new user
 @app.route('/register', methods=['POST'])
