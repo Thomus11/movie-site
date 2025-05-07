@@ -16,6 +16,7 @@ humanize = "*"
 resend = "*"
 sqlalchemy-serializer = "*"
 stripe = "*"
+gunicorn = "*"
 
 [dev-packages]
 
