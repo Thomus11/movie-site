@@ -1,42 +1,189 @@
-// ComingSoon.js
-
 import React from "react";
+import { CalendarDays, Clock, Popcorn, Bell } from "lucide-react";
 
 const ComingSoon = () => {
   const movies = [
-    { image: "/images/Soon1.jpeg", title: "Mission: Impossible – Dead Reckoning Part Two", description: "Action/Thriller." },
-    { image: "/images/Soon2.jpeg", title: "Thunderbolts", description: "Action/Adventure." },
-    { image: "/images/Soon3.jpeg", title: "Blade", description: "Action/Horror." },
-    { image: "/images/Soon4.jpeg", title: "Jurassic World Rebirth", description: "Action/Sci-fi." },
-    { image: "/images/Soon5.jpeg", title: "Fast X: Part 2", description: "Action/Thriller." },
-    { image: "/images/Soon6.jpeg", title: "Star Wars: Lost Horizons", description: "Sci-fi." },
-    { image: "/images/Soon7.jpeg", title: "Avatar: Fire & Ash", description: "Action/Sci-fi." },
-    { image: "/images/Soon8.jpeg", title: "Return of the Living Dead", description: "Horror/Comedy." },
+    { 
+      image: "/images/Soon1.jpeg", 
+      title: "Mission: Impossible – Dead Reckoning Part Two", 
+      genre: "Action/Thriller",
+      releaseDate: "2024-05-15",
+      runtime: "158 min",
+      director: "Christopher McQuarrie"
+    },
+    { 
+      image: "/images/Soon2.jpeg", 
+      title: "Thunderbolts", 
+      genre: "Action/Adventure",
+      releaseDate: "2024-06-28",
+      runtime: "132 min",
+      director: "Jake Schreier"
+    },
+    { 
+      image: "/images/Soon3.jpeg", 
+      title: "Blade", 
+      genre: "Action/Horror",
+      releaseDate: "2024-09-06",
+      runtime: "125 min",
+      director: "Yann Demange"
+    },
+    { 
+      image: "/images/Soon4.jpeg", 
+      title: "Jurassic World Rebirth", 
+      genre: "Action/Sci-fi",
+      releaseDate: "2024-07-19",
+      runtime: "142 min",
+      director: "Gareth Edwards"
+    },
+    { 
+      image: "/images/Soon5.jpeg", 
+      title: "Fast X: Part 2", 
+      genre: "Action/Thriller",
+      releaseDate: "2024-08-02",
+      runtime: "138 min",
+      director: "Louis Leterrier"
+    },
+    { 
+      image: "/images/Soon6.jpeg", 
+      title: "Star Wars: Lost Horizons", 
+      genre: "Sci-fi",
+      releaseDate: "2024-12-18",
+      runtime: "155 min",
+      director: "Sharmeen Obaid-Chinoy"
+    },
+    { 
+      image: "/images/Soon7.jpeg", 
+      title: "Avatar: Fire & Ash", 
+      genre: "Action/Sci-fi",
+      releaseDate: "2025-03-21",
+      runtime: "192 min",
+      director: "James Cameron"
+    },
+    { 
+      image: "/images/Soon8.jpeg", 
+      title: "Return of the Living Dead", 
+      genre: "Horror/Comedy",
+      releaseDate: "2024-10-25",
+      runtime: "118 min",
+      director: "Jordan Peele"
+    }
   ];
 
+  // Calculate days until release
+  const getDaysUntilRelease = (dateString) => {
+    const releaseDate = new Date(dateString);
+    const today = new Date();
+    const diffTime = releaseDate - today;
+    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  };
+
+  // Get release status text
+  const getReleaseStatus = (days) => {
+    if (days === 0) return "Opening today!";
+    if (days === 1) return "Tomorrow!";
+    if (days <= 7) return "Next week!";
+    if (days <= 30) return `In ${days} days`;
+    return `Coming ${new Date(releaseDate).toLocaleDateString('en-US', { month: 'long' })}`;
+  };
+
   return (
-    <div className="bg-[#0B0C10] py-20">
-      <div className="text-center mb-14">
-        <h2 className="text-5xl font-extrabold text-white tracking-wide mb-4">Coming Soon</h2>
-        <p className="text-lg text-gray-400">Catch the latest movies coming soon to the cinema</p>
+    <section className="bg-gradient-to-b from-[#0B0C10] to-[#1a1a1a] py-20 px-4 sm:px-6 relative overflow-hidden">
+      {/* Decorative elements */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+        <Popcorn className="absolute top-20 right-10 text-red-500/10 w-32 h-32" />
+        <Popcorn className="absolute bottom-20 left-10 text-red-500/10 w-32 h-32 transform rotate-180" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 px-6">
-        {movies.map((movie, index) => (
-          <div
-            key={index}
-            className="bg-[#1F1F1F] p-6 rounded-2xl w-full transition-all transform hover:scale-105 hover:shadow-lg"
-          >
-            <img
-              src={movie.image}
-              alt={movie.title}
-              className="w-full h-56 object-cover rounded-xl mb-6 transition-all transform hover:scale-105"
-            />
-            <h3 className="text-white text-2xl font-semibold mb-3">{movie.title}</h3>
-            <p className="text-base text-gray-400">{movie.description}</p>
-          </div>
-        ))}
+
+      <div className="max-w-screen-xl mx-auto relative z-10">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <h2 className="text-5xl font-bold text-white mb-4 font-['Bebas_Neue'] tracking-wider">
+            COMING <span className="text-red-500">ATTRACTIONS</span>
+          </h2>
+          <p className="text-lg text-gray-300 mt-3 flex justify-center items-center">
+            <Clock className="mr-2 w-5 h-5 text-red-500" /> 
+            Upcoming theatrical releases
+          </p>
+        </div>
+
+        {/* Movie Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {movies.map((movie, index) => {
+            const daysUntilRelease = getDaysUntilRelease(movie.releaseDate);
+            const releaseStatus = getReleaseStatus(daysUntilRelease);
+            const isComingSoon = daysUntilRelease <= 30;
+
+            return (
+              <div
+                key={index}
+                className="group relative bg-[#1F1F1F]/90 rounded-xl overflow-hidden shadow-lg hover:shadow-red-900/30 transition-all duration-500 border border-gray-800 hover:border-red-500/30"
+              >
+                {/* Movie Poster with Countdown Badge */}
+                <div className="relative h-80 overflow-hidden">
+                  <img
+                    src={movie.image}
+                    alt={movie.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className={`absolute top-4 left-4 text-sm font-bold px-3 py-1 rounded-full flex items-center ${
+                    daysUntilRelease <= 7 ? "bg-red-500/90 text-white" : "bg-black/80 text-red-400"
+                  }`}>
+                    <CalendarDays className="mr-1 w-4 h-4" />
+                    {releaseStatus}
+                  </div>
+                </div>
+
+                {/* Movie Info */}
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-tight">
+                    {movie.title}
+                  </h3>
+                  
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {movie.genre.split('/').map((g, i) => (
+                      <span key={i} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+                        {g.trim()}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="text-sm text-gray-400 mb-3">
+                    <p className="truncate">Director: {movie.director}</p>
+                    <div className="flex justify-between mt-1">
+                      <span>{movie.runtime}</span>
+                      <span className="text-red-400 font-medium">
+                        {new Date(movie.releaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Interactive Elements */}
+                  <div className="flex space-x-2">
+                    <button className="flex-1 bg-transparent hover:bg-red-500/10 text-red-500 font-medium py-2 px-3 rounded-lg border border-red-500/30 flex items-center justify-center transition-colors text-sm">
+                      <Bell className="mr-2 w-4 h-4" />
+                      Remind Me
+                    </button>
+                    <button className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm">
+                      Trailer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Custom Font */}
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+        .font-['Bebas_Neue'] {
+          font-family: 'Bebas Neue', cursive;
+        }
+      `}</style>
+    </section>
   );
 };
 

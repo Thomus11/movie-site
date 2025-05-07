@@ -1,77 +1,129 @@
-// Footer.js
-
 import React from 'react';
 import { FaFacebook, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
+import { FiMail, FiMapPin, FiPhone, FiClock } from 'react-icons/fi';
 
 const Footer = () => {
   return (
-    <footer className="bg-[#03071e] text-white py-16 mt-8 border-t border-[#370617]">
+    <footer className="bg-[#0B0C10] text-white pt-20 pb-12 border-t border-[#1F1F1F]">
       <div className="max-w-screen-xl mx-auto px-6">
-        
-        {/* Top Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-
-          {/* Column 1: Logo/Brand */}
-          <div className="flex flex-col items-center md:items-start">
-            <h2 
-              className="text-4xl font-bold text-[#6a040f] mb-4" 
-              style={{ fontFamily: 'Cinzel, serif' }}
-            >
-              CineReserve
+        {/* Main Footer Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 mb-16">
+          
+          {/* Brand Column */}
+          <div className="flex flex-col">
+            <h2 className="text-3xl font-bold mb-6 font-playfair tracking-wider">
+              Cine<span className="text-red-500">Reserve</span>
             </h2>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Your one-stop destination for all movie bookings. Get tickets for the latest films and enjoy premium movie experiences.
+            <p className="text-gray-400 mb-6 leading-relaxed font-light">
+              Nairobi's premier cinema experience offering luxury screenings, gourmet concessions, and unforgettable movie moments.
             </p>
+            <div className="flex space-x-4">
+              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+                <FaFacebook size={20} />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+                <FaTwitter size={20} />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+                <FaInstagram size={20} />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+                <FaYoutube size={20} />
+              </a>
+            </div>
           </div>
 
-          
-          <div className="flex flex-col items-center md:items-start">
-            <h3 className="text-xl font-semibold mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Quick Links</h3>
+          {/* Quick Links */}
+          <div className="flex flex-col">
+            <h3 className="text-lg font-semibold mb-6 font-playfair tracking-wider uppercase text-gray-300">
+              Navigation
+            </h3>
             <ul className="space-y-3">
-              <li><a href="#" className="hover:text-[#6a040f] transition-colors duration-300">About Us</a></li>
-              <li><a href="#" className="hover:text-[#6a040f] transition-colors duration-300">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-[#6a040f] transition-colors duration-300">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-[#6a040f] transition-colors duration-300">Contact Us</a></li>
+              {['Movies', 'Cinemas', 'Offers', 'Gift Cards'].map((item) => (
+                <li key={item}>
+                  <a href="#" className="text-gray-400 hover:text-red-400 transition-colors duration-300 flex items-center">
+                    <span className="w-1 h-1 bg-red-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                    {item}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
-        
-          <div className="flex flex-col items-center md:items-start">
-            <h3 className="text-xl font-semibold mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Stay Connected</h3>
-            <div className="flex space-x-6 mb-4">
-              <a href="#" className="text-[#6a040f] hover:text-white transition-colors duration-300">
-                <FaFacebook size={24} />
-              </a>
-              <a href="#" className="text-[#6a040f] hover:text-white transition-colors duration-300">
-                <FaTwitter size={24} />
-              </a>
-              <a href="#" className="text-[#6a040f] hover:text-white transition-colors duration-300">
-                <FaInstagram size={24} />
-              </a>
-              <a href="#" className="text-[#6a040f] hover:text-white transition-colors duration-300">
-                <FaYoutube size={24} />
-              </a>
-            </div>
-            <div className="w-full max-w-sm">
+          {/* Contact Info */}
+          <div className="flex flex-col">
+            <h3 className="text-lg font-semibold mb-6 font-playfair tracking-wider uppercase text-gray-300">
+              Contact
+            </h3>
+            <ul className="space-y-4">
+              <li className="flex items-start">
+                <FiMapPin className="text-red-500 mt-1 mr-3 flex-shrink-0" />
+                <span className="text-gray-400">Nairobi, Kenya</span>
+              </li>
+              <li className="flex items-start">
+                <FiMail className="text-red-500 mt-1 mr-3 flex-shrink-0" />
+                <span className="text-gray-400">info@cinerserve.co.ke</span>
+              </li>
+              <li className="flex items-start">
+                <FiPhone className="text-red-500 mt-1 mr-3 flex-shrink-0" />
+                <span className="text-gray-400">+254 700 123456</span>
+              </li>
+              <li className="flex items-start">
+                <FiClock className="text-red-500 mt-1 mr-3 flex-shrink-0" />
+                <span className="text-gray-400">Daily: 10AM - 11PM</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Newsletter */}
+          <div className="flex flex-col">
+            <h3 className="text-lg font-semibold mb-6 font-playfair tracking-wider uppercase text-gray-300">
+              Newsletter
+            </h3>
+            <p className="text-gray-400 mb-4 leading-relaxed font-light">
+              Subscribe for exclusive offers and movie updates
+            </p>
+            <div className="flex">
               <input
                 type="email"
-                className="w-full p-3 rounded-lg bg-[#370617] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6a040f]"
-                placeholder="Enter your email to subscribe"
+                className="flex-grow p-3 rounded-l-lg bg-[#1F1F1F] text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                placeholder="Your email"
               />
-              <button className="w-full mt-3 p-3 bg-[#6a040f] text-white font-semibold rounded-lg hover:bg-[#370617] transition-all duration-300">
-                Subscribe
+              <button className="bg-red-600 hover:bg-red-700 text-white px-4 rounded-r-lg transition-colors duration-300">
+                <FiMail size={20} />
               </button>
             </div>
           </div>
-
         </div>
 
-        {/* Bottom */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} CineReserve. All Rights Reserved.</p>
+        {/* Copyright & Legal */}
+        <div className="pt-8 border-t border-[#1F1F1F]">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <p className="text-sm text-gray-500 mb-4 md:mb-0">
+              &copy; {new Date().getFullYear()} CineReserve. All rights reserved.
+            </p>
+            <div className="flex space-x-6">
+              <a href="#" className="text-sm text-gray-500 hover:text-white transition-colors duration-300">
+                Privacy Policy
+              </a>
+              <a href="#" className="text-sm text-gray-500 hover:text-white transition-colors duration-300">
+                Terms of Service
+              </a>
+              <a href="#" className="text-sm text-gray-500 hover:text-white transition-colors duration-300">
+                Sitemap
+              </a>
+            </div>
+          </div>
         </div>
-
       </div>
+
+      {/* Font Import */}
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');
+        .font-playfair {
+          font-family: 'Playfair Display', serif;
+        }
+      `}</style>
     </footer>
   );
 };

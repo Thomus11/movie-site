@@ -48,7 +48,7 @@ export default function AuthModal({ type, onClose, onLogin }) {
     onSubmit: async (values) => {
       try {
         if (isLogin) {
-          const res = await axios.post("http://localhost:5500/login", {
+          const res = await axios.post("http://localhost:5000/login", {
             username: values.email,
             password: values.password,
           });
@@ -63,7 +63,7 @@ export default function AuthModal({ type, onClose, onLogin }) {
           toast.success("Login successful!");
           navigate(role === "admin" ? "/admin-auth" : "/dashboard");
         } else {
-          await axios.post("http://localhost:5500/register", {
+          await axios.post("http://localhost:5000/register", {
             username: values.email,
             email: values.email,
             password: values.password,

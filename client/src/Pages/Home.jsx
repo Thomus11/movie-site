@@ -3,6 +3,7 @@ import Navbar from "./Navbar";
 import Carousel from "./Carousel";
 import AuthModal from "../components/AuthModal";
 import AvailableNow from "./AvailableNow";
+import AvailableCinemas from "./AvailableCinemas";
 import ComingSoon from "./ComingSoon";
 import Footer from "./Footer";
 import UserDashboard from "../components/UserDashboard";
@@ -53,6 +54,7 @@ function HomePage() {
         <div className="w-full h-screen">
           <Carousel />
         </div>
+        <AvailableCinemas/>
         <AvailableNow />
         <ComingSoon />
         {showModal && <AuthModal type={authType} onClose={closeModal} onLogin={handleLogin} />}
