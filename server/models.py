@@ -49,7 +49,9 @@ class Showtime(db.Model, SerializerMixin):
     movie_id = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     duration = db.Column(db.Integer, nullable=False)  # Added duration in minutes
+
     admin_id= db.Column(db.Integer, db.ForeignKey('admins.id'))
+
     reservations = db.relationship('Reservation', backref='showtime', cascade="all, delete")
     seats = db.relationship('Seat', backref='showtime', cascade="all, delete")
 
@@ -68,7 +70,9 @@ class Seat(db.Model, SerializerMixin):
         db.UniqueConstraint('seat_number', 'showtime_id', name='unique_seat_per_showtime'),
     )
 
+
     serialize_rules = ('-showtime.seats', '-showtime.reservations', '-seats.reservations',)
+
 
 class Reservation(db.Model, SerializerMixin): 
     __tablename__ = 'reservations'
@@ -76,8 +80,10 @@ class Reservation(db.Model, SerializerMixin):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     showtime_id = db.Column(db.Integer, db.ForeignKey('showtimes.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
     status = db.Column(db.String(20), default='pending')  
     payment = db.relationship('Payment', backref='reservation', uselist=False, cascade="all, delete-orphan")
+
     seats = db.relationship('Seat', secondary=reservation_seats)
 
     serialize_rules = ('-user.reservations', '-showtime.reservations', '-payment.reservation', '-seats.reservations', '-reservation.seats')

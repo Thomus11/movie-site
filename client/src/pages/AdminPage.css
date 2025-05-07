@@ -1,0 +1,87 @@
+.admin-page {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .admin-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .admin-header h1 {
+    margin: 0;
+    color: var(--secondary-color);
+  }
+  
+  .admin-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+    overflow-x: auto;
+  }
+  
+  .admin-tabs button {
+    padding: 0.75rem 1.5rem;
+    background: none;
+    border: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-weight: 500;
+    color: #666;
+    white-space: nowrap;
+  }
+  
+  .admin-tabs button:hover {
+    background-color: #f5f5f5;
+    color: #333;
+  }
+  
+  .admin-tabs button.active {
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  .admin-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .movie-management,
+  .showtime-management,
+  .user-management,
+  .reference-management {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .admin-tabs {
+      flex-wrap: wrap;
+    }
+    
+    .admin-tabs button {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+    
+    .admin-content {
+      padding: 1rem;
+    }
+  }

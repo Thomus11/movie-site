@@ -14,6 +14,7 @@ import os
 import re  # For manual email validation
 import stripe  # Added stripe import for payment processing
 
+
 # Load environment variables
 load_dotenv()
 
@@ -65,6 +66,7 @@ app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
 app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('CLOUDINARY_CLOUD_NAME')
 app.config['CLOUDINARY_API_KEY'] = os.getenv('CLOUDINARY_API_KEY')
 app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
+
 
 # Limit upload size and allowed extensions
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
@@ -134,6 +136,7 @@ def validate_email(email):
         return False
     return True
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -166,6 +169,7 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+
     
     # Send welcome email
     send_email(email, "Welcome to Our Service", f"Hello {username}, thank you for registering!")
@@ -182,6 +186,7 @@ def login():
     user = User.query.filter_by(username=username).first()
     if not user or not user.check_password(password):
         return jsonify({"message": "Invalid credentials"}), 401
+
 
     access_token = create_access_token(identity=user.id)
     return jsonify(access_token=access_token), 200
@@ -208,6 +213,7 @@ def admin_dashboard():
 @app.route('/users/promote/<int:user_id>', methods=['POST'])
 def promote_user(user_id):
     # Temporary endpoint without auth for testing only
+
     user = User.query.get_or_404(user_id)
     user.role = 'admin'
     db.session.commit()
@@ -323,6 +329,7 @@ def search_movies():
         query = query.filter(Movie.title.ilike(f"%{title}%"))
 
     movies = query.all()
+
     return jsonify([{
         **movie.to_dict(),
         "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
@@ -339,13 +346,16 @@ def get_movies():
     movies = pagination.items
 
     return jsonify({
+
         "movies": [{
             **movie.to_dict(),
             "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
         } for movie in movies],
+
         "total_pages": pagination.pages,
         "current_page": pagination.page
     }), 200
+
 
 # Upload a movie poster (Admin only) with file validation
 @app.route('/upload-poster', methods=['POST'])
@@ -364,6 +374,7 @@ def upload_poster():
     if file.filename == '':
         return jsonify({"message": "No selected file"}), 400
 
+
     if not allowed_file(file.filename):
         return jsonify({"message": "Invalid file type"}), 400
 
@@ -378,6 +389,7 @@ def upload_poster():
         app.logger.error(f"Cloudinary upload failed: {str(e)}")
         return jsonify({"message": "File upload failed"}), 500
     
+
 # Create a showtime (Admin only)
 @app.route('/showtimes', methods=['POST'])
 @jwt_required()
@@ -408,11 +420,13 @@ def create_showtime():
     db.session.add(showtime)
     db.session.commit()
 
+
     return jsonify({
         "message": "Showtime created successfully", 
         "showtime_id": showtime.id,
         "start_time": naturaltime(showtime.start_time)
     }), 201
+
 
 # Get movies and showtimes for a specific date
 @app.route('/showtimes/search', methods=['GET'])
@@ -468,14 +482,17 @@ def create_seats():
 
     return jsonify({"message": "Seats created successfully"}), 201
 
+
 # Create Reservation
 @app.route('/reservations/<int:reservation_id>', methods=['PUT'])
 @jwt_required()
 def update_reservation(reservation_id):
+
     data = request.get_json()
     user_id = get_jwt_identity()
     showtime_id = data.get('showtime_id')
     seat_ids = data.get('seat_ids')
+
     payment_method = data.get('payment_method', 'credit_card')  # Default payment method
 
     # Validate required fields
@@ -491,6 +508,7 @@ def update_reservation(reservation_id):
     seats = Seat.query.filter(Seat.id.in_(seat_ids), Seat.is_reserved == False).all()
     if len(seats) != len(seat_ids):
         return jsonify({"message": "One or more seats are already reserved"}), 400
+
 
     # Calculate total amount
     seat_price = 10.00  # Default seat price
@@ -605,11 +623,13 @@ def admin_report():
 
     if user.role != 'admin':
         return jsonify({"message": "Admin access required"}), 403
+
     
     #Fetches all reservations
     reservations = Reservation.query.all()
     
     #prepare the report  data
+
     report = {
         "total_reservations": len(reservations),
         "capacity_utilization": sum(len(r.seats) for r in reservations),
@@ -617,6 +637,7 @@ def admin_report():
     }
 
     return jsonify(report), 200
+
 
 # Admin view of all reservations
 @app.route('/admin/reservations', methods=['GET'])
@@ -666,7 +687,8 @@ def index():
     </ul>
     <p>Use an API client like Postman or Thunder Client to test these endpoints with appropriate HTTP methods and headers.</p>
     """
-    
+  
 
 if __name__ == '__main__':
     app.run(debug=True)
+
