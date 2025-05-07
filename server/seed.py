@@ -1,5 +1,3 @@
-seed.py
-
 from app import app, db
 from models import User, Movie, Showtime, Seat, Reservation, Payment , Admin, AdminReference
 from datetime import datetime, timedelta

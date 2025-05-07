@@ -1,27 +1,56 @@
 from flask import Flask, request, jsonify
-import jwt
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
+from models import db, User, Movie, Showtime, Seat, Reservation, Admin, Payment, AdminReference
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from resend.emails._emails import Emails
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 from datetime import timedelta, datetime
 from humanize import naturaltime
 from dotenv import load_dotenv
 import os
-import re  # For manual email validation
+import re  
+import stripe 
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# Load environment variables
+
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
+
+
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+
+# Define the process_stripe_payment function
+def process_stripe_payment(amount, payment_token):
+    """
+    Process a payment using Stripe API.
+
+    :param amount: Amount in dollars to charge
+    :param payment_token: Stripe payment token (e.g., from frontend)
+    :return: Stripe charge object
+    """
+    try:
+        # Stripe expects amount in cents
+        amount_cents = int(amount * 100)
+        charge = stripe.Charge.create(
+            amount=amount_cents,
+            currency='usd',
+            source=payment_token,
+            description='Movie reservation payment'
+        )
+        return charge
+    except stripe.error.StripeError as e:
+        # Handle Stripe errors
+        raise Exception(f"Stripe error: {str(e)}")
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f'postgresql://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@'
-    f'{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}'
+    f'postgresql://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
@@ -29,12 +58,14 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry
 app.config['JWT_ALGORITHM'] = 'HS256'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
+app.config["JWT_IDENTITY_CLAIM"] = "sub"  # Explicitly use 'sub' as identity claim
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')  # Default to development
 FLASK_APP = os.getenv('FLASK_APP', 'app.py')  # Default app entry point
 app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY')
-app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('CLOUDINARY_CLOUD_NAME')
-app.config['CLOUDINARY_API_KEY'] = os.getenv('CLOUDINARY_API_KEY')
-app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
+app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('dsrivrpjm')
+app.config['CLOUDINARY_API_KEY'] = os.getenv('338437774886132')
+app.config['CLOUDINARY_API_SECRET'] = os.getenv('p4_1z6TU8AEIOsXfO8MPnNKef4E')
 
 # Limit upload size and allowed extensions
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
@@ -47,10 +78,39 @@ jwt = JWTManager(app)
 
 # Configure Cloudinary
 cloudinary.config(
-    cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
-    api_key=app.config['CLOUDINARY_API_KEY'],
-    api_secret=app.config['CLOUDINARY_API_SECRET']
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+
+ 
 )
+
+# Upload a local image
+response = cloudinary.uploader.upload("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQq-nmAi-josdg_AUhzjux6A0dMcFLxDm2TTw&s")
+
+print("Uploaded Image URL:", response['url'])
+
+@app.route('/test-upload', methods=['GET'])
+def test_upload():
+    # URL of the image you want to upload
+    image_url = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQq-nmAi-josdg_AUhzjux6A0dMcFLxDm2TTw&s'
+
+    try:
+        # Upload the image from the URL to Cloudinary
+        response = cloudinary.uploader.upload(image_url)
+
+        # Return the URL of the uploaded image
+        return jsonify({
+            'status': 'success',
+            'message': 'Image uploaded successfully',
+            'url': response['url']
+        })
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 # JWT Error Handlers
 @jwt.expired_token_loader
@@ -156,16 +216,28 @@ def login():
     access_token = create_access_token(identity=user.id)
     return jsonify(access_token=access_token), 200
 
-# Promote a user to admin (Admin only)
-@app.route('/users/promote/<int:user_id>', methods=['POST'])
+#Admin route
+@app.route('/admin', methods=['GET'])
 @jwt_required()
-def promote_user(user_id):
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
+def admin_dashboard():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
 
-    if current_user.role != 'admin':
+    if user.role != 'admin':
         return jsonify({"message": "Admin access required"}), 403
 
+    return jsonify({
+        "message": f"Welcome Admin {user.username}",
+        "admin": True,
+        "email": user.email,
+        "user_id": user.id
+    }), 200
+
+
+# Promote a user to admin (Admin only)
+@app.route('/users/promote/<int:user_id>', methods=['POST'])
+def promote_user(user_id):
+    # Temporary endpoint without auth for testing only
     user = User.query.get_or_404(user_id)
     user.role = 'admin'
     db.session.commit()
@@ -316,26 +388,22 @@ def upload_poster():
         return jsonify({"message": "Admin access required"}), 403
 
     if 'file' not in request.files:
-        return jsonify({"message": "No file part"}), 400
+        return jsonify({"message": "No file part in the request"}), 400
 
     file = request.files['file']
+
     if file.filename == '':
         return jsonify({"message": "No selected file"}), 400
 
-    if not allowed_file(file.filename):
-        return jsonify({"message": "Invalid file type"}), 400
+    if file and allowed_file(file.filename):
+        try:
+            upload_result = cloudinary.uploader.upload(file)
+            return jsonify({"url": upload_result['secure_url']}), 200
+        except Exception as e:
+            return jsonify({"message": f"Upload failed: {str(e)}"}), 500
+    else:
+        return jsonify({"message": "File type not allowed"}), 400
 
-    try:
-        upload_result = cloudinary.uploader.upload(
-            file,
-            resource_type="image",
-            allowed_formats=list(ALLOWED_EXTENSIONS)
-        )
-        return jsonify({"url": upload_result['secure_url']}), 200
-    except Exception as e:
-        app.logger.error(f"Cloudinary upload failed: {str(e)}")
-        return jsonify({"message": "File upload failed"}), 500
-    
 # Create a showtime (Admin only)
 @app.route('/showtimes', methods=['POST'])
 @jwt_required()
