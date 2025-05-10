@@ -2,23 +2,29 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from models import db, User, Movie, Showtime, Seat, Reservation, Admin ,Payment ,AdminReference
+from models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from sqlalchemy.orm import joinedload
 from resend.emails._emails import Emails
+import resend
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 from datetime import timedelta, datetime
 from humanize import naturaltime
 from dotenv import load_dotenv
 import os
 import re  # For manual email validation
-import stripe  # Added stripe import for payment processing
+import stripe  # Stripe for payment processing
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+CORS(app, origins=[frontend_url], supports_credentials=True)
+
 
 # Configure Stripe with secret key from environment variables
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
@@ -51,13 +57,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
     f'postgresql://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@'
     f'{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}'
 )
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://thomas:fluffy254@localhost:5432/cinema_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry  
-app.config['JWT_ALGORITHM'] = 'HS256'
+app.config['JWT_HEADER_NAME'] = 'Authorization'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
-app.config["JWT_IDENTITY_CLAIM"] = "sub"  # Explicitly use 'sub' as identity claim
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')  # Default to development
 FLASK_APP = os.getenv('FLASK_APP', 'app.py')  # Default app entry point
@@ -66,14 +72,18 @@ app.config['CLOUDINARY_CLOUD_NAME'] = os.getenv('CLOUDINARY_CLOUD_NAME')
 app.config['CLOUDINARY_API_KEY'] = os.getenv('CLOUDINARY_API_KEY')
 app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
 
+
 # Limit upload size and allowed extensions
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+
 
 # Initialize extensions
 db.init_app(app)
 migrate = Migrate(app, db)
-jwt = JWTManager(app)
+jwt_manager = JWTManager(app)
 
 # Configure Cloudinary
 cloudinary.config(
@@ -83,19 +93,19 @@ cloudinary.config(
 )
 
 # JWT Error Handlers
-@jwt.expired_token_loader
+@jwt_manager.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
     return jsonify({"message": "The token has expired"}), 401
 
-@jwt.invalid_token_loader
-def invalid_token_callback(error):
-    return jsonify({"message": "Invalid token"}), 422
+@jwt_manager.invalid_token_loader
+def invalid_token_callback(error_string):
+    return jsonify({"message": "Invalid or malformed token", "error": error_string}), 401
 
-@jwt.unauthorized_loader
-def missing_token_callback(error):
-    return jsonify({"message": "Request does not contain an access token"}), 401
+@jwt_manager.unauthorized_loader
+def missing_token_callback(error_string):
+    return jsonify({"message": "Missing access token", "error": error_string}), 401
 
-@jwt.revoked_token_loader
+@jwt_manager.revoked_token_loader
 def revoked_token_callback(jwt_header, jwt_payload):
     return jsonify({"message": "The token has been revoked"}), 401
 
@@ -113,7 +123,8 @@ def internal_server_error(error):
     return jsonify({"message": "Internal server error"}), 500
 
 # Initialize Resend client
-resend = Emails()
+resend.api_key = os.getenv("RESEND_API_KEY")
+emails = Emails()
 
 # Helper Functions
 def send_email(to_email, subject, content):
@@ -129,13 +140,45 @@ def send_email(to_email, subject, content):
         return str(e)
 
 def validate_email(email):
-    """Validate email format using regex."""
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        return False
-    return True
+    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/send-email', methods=['POST'])
+@jwt_required()
+def send_email_route():
+    data = request.get_json()
+    to = data.get('to')
+    subject = data.get('subject')
+    content = data.get('content')
+
+    # Validate
+    if not to or not validate_email(to):
+        return jsonify({'message': 'Invalid recipient email'}), 400
+
+    if not subject or not content:
+        return jsonify({'message': 'Subject and content are required'}), 400
+
+    # Send email
+    result = send_email(to, subject, content)
+
+    if "error" in str(result).lower():
+        return jsonify({'message': 'Failed to send email', 'error': result}), 500
+
+    return jsonify({'message': 'Email sent successfully', 'id': result}), 200
+
+
+
+# Helper function to validate strong password
+def is_strong_password(pw):
+    return (
+        len(pw) >= 8 and
+        re.search(r"[A-Z]", pw) and
+        re.search(r"[a-z]", pw) and
+        re.search(r"\d", pw) and
+        re.search(r"[!@#$%^&*(),.?\":{}|<>]", pw)
+    )
 
 
 # Routes
@@ -148,43 +191,50 @@ def register():
     email = data.get('email')
     password = data.get('password')
 
-    # Validation
     if not username or len(username) > 80:
         return jsonify({"message": "Username is required and must be <= 80 characters"}), 400
     if not email or not validate_email(email):
         return jsonify({"message": "Invalid email address"}), 400
-    if not password or len(password) < 6:
-        return jsonify({"message": "Password is required and must be >= 6 characters"}), 400
+    if not password:
+        return jsonify({"message": "Password is required"}), 400
+    if not is_strong_password(password):
+        return jsonify({
+            "message": "Password must be at least 8 characters long, include an uppercase letter, "
+                       "a lowercase letter, a number, and a special character."
+        }), 400
 
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "Username already exists"}), 400
-
     if User.query.filter_by(email=email).first():
-        return jsonify({"message": "Email already exists"}), 400
-
-    user = User(username=username, email=email)
+        return jsonify({
+            "message": "An account with this email already exists. Please sign in or use a different email address."
+        }), 400
+    
+  
+    user = User(username=username, email=email, role='user')  # always default to user
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    
-    # Send welcome email
+
     send_email(email, "Welcome to Our Service", f"Hello {username}, thank you for registering!")
 
     return jsonify({"message": "User registered successfully"}), 201
 
-# Login and generate JWT token
+
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    username = data.get('username')
+    data = request.get_json() or {}
+    email = data.get('email')
     password = data.get('password')
-
-    user = User.query.filter_by(username=username).first()
+    if not email or not password:
+        return jsonify({"message": "Email and password required"}), 400
+    user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(password):
         return jsonify({"message": "Invalid credentials"}), 401
+    token = create_access_token(identity=str(user.id))
+    return jsonify({"access_token": token, "username": user.username, "role": user.role}), 200
 
-    access_token = create_access_token(identity=user.id)
-    return jsonify(access_token=access_token), 200
+
 
 #Admin route
 @app.route('/admin', methods=['GET'])
@@ -257,6 +307,84 @@ def create_movie():
 
     return jsonify({"message": "Movie created successfully", "movie_id": movie.id}), 201
 
+# Auth Routes
+@app.route('/api/auth/me', methods=['GET'])
+@jwt_required()  
+def get_user_info():
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+
+    
+    return jsonify({
+        "username": user.username,
+        "email":    user.email,
+        "role":     user.role
+    }), 200
+
+# Movie Routes
+@app.route('/api/movies', methods=['GET'])
+def get_movies():
+    movies = Movie.query.options(
+        joinedload(Movie.showtimes).joinedload(Showtime.cinema)
+    ).all()
+    return jsonify([{
+        'id': m.id,
+        'title': m.title,
+        'genre': m.genre,
+        'rating': float(m.rating) if m.rating else 4.0,
+        'duration': m.duration,
+        'poster_url': m.poster_url,
+        'description': m.description,
+        'release_date': m.release_date.isoformat(),
+        'price': m.price,
+        'cinemas': list({st.cinema_id for st in m.showtimes}),
+        'showtimes': [{
+            'id': st.id,
+            'start_time': st.start_time.isoformat(),
+            'cinema_id': st.cinema_id,
+            'cinema_name': st.cinema.name if st.cinema else None
+        } for st in m.showtimes]
+    } for m in movies])
+
+# # Cinema Routes
+@app.route('/api/cinemas', methods=['GET'])
+def get_cinemas():
+    cinemas = Cinema.query.all()
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'location': c.location
+    } for c in cinemas])
+
+# # Reservation Routes
+# @app.route('/api/reservations', methods=['GET'])
+# @jwt_required()
+# def get_user_reservations():
+#     user_id = get_jwt_identity()
+#     reservations = Reservation.query.options(
+#         joinedload(Reservation.showtime).joinedload(Showtime.movie),
+#         joinedload(Reservation.showtime).joinedload(Showtime.cinema),
+#         joinedload(Reservation.seats)
+#     ).filter_by(user_id=user_id).all()
+    
+#     return jsonify([{
+#         'id': r.id,
+#         'status': r.status,
+#         'amount': r.payment.amount if r.payment else None,
+#         'movie': {
+#             'title': r.showtime.movie.title,
+#             'poster_url': r.showtime.movie.poster_url
+#         },
+#         'cinema': {
+#             'name': r.showtime.cinema.name,
+#             'location': r.showtime.cinema.location
+#         },
+#         'showtime': {
+#             'start_time': r.showtime.start_time.isoformat()
+#         },
+#         'seats': [s.seat_number for s in r.seats]
+#     } for r in reservations])    
+
 # Update a movie (Admin only)
 @app.route('/movies/<int:movie_id>', methods=['PUT'])
 @jwt_required()
@@ -293,59 +421,42 @@ def update_movie(movie_id):
 
     return jsonify({"message": "Movie updated successfully"}), 200
 
-# Delete a movie (Admin only)
-@app.route('/movies/<int:movie_id>', methods=['DELETE'])
-@jwt_required()
-def delete_movie(movie_id):
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+# # Delete a movie (Admin only)
+# @app.route('/movies/<int:movie_id>', methods=['DELETE'])
+# @jwt_required()
+# def delete_movie(movie_id):
+#     user_id = get_jwt_identity()
+#     user = User.query.get(user_id)
 
-    if user.role != 'admin':
-        return jsonify({"message": "Admin access required"}), 403
+#     if user.role != 'admin':
+#         return jsonify({"message": "Admin access required"}), 403
 
-    movie = Movie.query.get_or_404(movie_id)
-    db.session.delete(movie)
-    db.session.commit()
+#     movie = Movie.query.get_or_404(movie_id)
+#     db.session.delete(movie)
+#     db.session.commit()
 
-    return jsonify({"message": "Movie deleted successfully"}), 200
+#     return jsonify({"message": "Movie deleted successfully"}), 200
 
-# Fetch movies by genre and/or title
-@app.route('/movies/search', methods=['GET'])
-@jwt_required()
-def search_movies():
-    genre = request.args.get('genre')
-    title = request.args.get('title')
 
-    query = Movie.query
-    if genre:
-        query = query.filter(Movie.genre.ilike(f"%{genre}%"))
-    if title:
-        query = query.filter(Movie.title.ilike(f"%{title}%"))
 
-    movies = query.all()
-    return jsonify([{
-        **movie.to_dict(),
-        "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
-    } for movie in movies]), 200
+# # Get paginated list of movies
+# @app.route('/movies', methods=['GET'])
+# @jwt_required()
+# def get_movies():
+#     page = request.args.get('page', 1, type=int)
+#     per_page = request.args.get('per_page', 10, type=int)
 
-# Get paginated list of movies
-@app.route('/movies', methods=['GET'])
-@jwt_required()
-def get_movies():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
+#     pagination = Movie.query.paginate(page=page, per_page=per_page, error_out=False)
+#     movies = pagination.items
 
-    pagination = Movie.query.paginate(page=page, per_page=per_page, error_out=False)
-    movies = pagination.items
-
-    return jsonify({
-        "movies": [{
-            **movie.to_dict(),
-            "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
-        } for movie in movies],
-        "total_pages": pagination.pages,
-        "current_page": pagination.page
-    }), 200
+#     return jsonify({
+#         "movies": [{
+#             **movie.to_dict(),
+#             "natural_release_date": naturaltime(datetime.combine(movie.release_date, datetime.min.time()))
+#         } for movie in movies],
+#         "total_pages": pagination.pages,
+#         "current_page": pagination.page
+#     }), 200
 
 # Upload a movie poster (Admin only) with file validation
 @app.route('/upload-poster', methods=['POST'])
@@ -378,41 +489,41 @@ def upload_poster():
         app.logger.error(f"Cloudinary upload failed: {str(e)}")
         return jsonify({"message": "File upload failed"}), 500
     
-# Create a showtime (Admin only)
-@app.route('/showtimes', methods=['POST'])
-@jwt_required()
-def create_showtime():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+# # Create a showtime (Admin only)
+# @app.route('/showtimes', methods=['POST'])
+# @jwt_required()
+# def create_showtime():
+#     user_id = get_jwt_identity()
+#     user = User.query.get(user_id)
 
-    if user.role != 'admin':
-        return jsonify({"message": "Admin access required"}), 403
+#     if user.role != 'admin':
+#         return jsonify({"message": "Admin access required"}), 403
 
-    data = request.get_json()
-    movie_id = data.get('movie_id')
-    start_time = data.get('start_time')
-    duration = data.get('duration')
+#     data = request.get_json()
+#     movie_id = data.get('movie_id')
+#     start_time = data.get('start_time')
+#     duration = data.get('duration')
 
-    if not all([movie_id, start_time, duration]):
-        return jsonify({"message": "Missing required fields"}), 400
-    try:
-        start_time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-    except ValueError:
-        return jsonify({"message": "Invalid start time format. Use YYYY-MM-DD HH:MM:SS"}), 400
+#     if not all([movie_id, start_time, duration]):
+#         return jsonify({"message": "Missing required fields"}), 400
+#     try:
+#         start_time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+#     except ValueError:
+#         return jsonify({"message": "Invalid start time format. Use YYYY-MM-DD HH:MM:SS"}), 400
 
-    showtime = Showtime(
-        movie_id=movie_id,
-        start_time=start_time,
-        duration=duration
-    )
-    db.session.add(showtime)
-    db.session.commit()
+#     showtime = Showtime(
+#         movie_id=movie_id,
+#         start_time=start_time,
+#         duration=duration
+#     )
+#     db.session.add(showtime)
+#     db.session.commit()
 
-    return jsonify({
-        "message": "Showtime created successfully", 
-        "showtime_id": showtime.id,
-        "start_time": naturaltime(showtime.start_time)
-    }), 201
+#     return jsonify({
+#         "message": "Showtime created successfully", 
+#         "showtime_id": showtime.id,
+#         "start_time": naturaltime(showtime.start_time)
+#     }), 201
 
 # Get movies and showtimes for a specific date
 @app.route('/showtimes/search', methods=['GET'])
@@ -435,38 +546,141 @@ def search_showtimes():
 
     return jsonify(formatted_showtimes), 200
 
-# Create seats for a showtime (Admin only)
-@app.route('/seats', methods=['POST'])
+
+# Get current user data
+@app.route('/api/auth/me', methods=['GET'])
 @jwt_required()
-def create_seats():
+def get_current_user():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role
+    }), 200
 
-    if user.role != 'admin':
-        return jsonify({"message": "Admin access required"}), 403
+# Get user's reservations
+@app.route('/api/reservations', methods=['GET'])
+@jwt_required()
+def get_user_reservations():
+    user_id = get_jwt_identity()
+    reservations = Reservation.query.filter_by(user_id=user_id).all()
+    
+    return jsonify([{
+        "id": reservation.id,
+        "movie": {
+            "id": reservation.showtime.movie.id,
+            "title": reservation.showtime.movie.title
+        },
+        "cinema": {
+            "id": reservation.showtime.cinema.id,
+            "name": reservation.showtime.cinema.name
+        },
+        "showtime": reservation.showtime.start_time.isoformat(),
+        "seats": [seat.seat_number for seat in reservation.seats],
+        "amount": reservation.payment.amount,
+        "status": reservation.status,
+        "payment_method": reservation.payment.payment_method
+    } for reservation in reservations]), 200
 
+# Create new reservation
+@app.route('/api/reservations', methods=['POST'])
+@jwt_required()
+def create_reservation():
+    user_id = get_jwt_identity()
     data = request.get_json()
-    showtime_id = data.get('showtime_id')
-    seat_numbers = data.get('seat_numbers')  # List of seat numbers (e.g., ['A1', 'A2'])
-
-    if not all([showtime_id, seat_numbers]):
+    
+    # Validate required fields
+    required_fields = ['movie_id', 'showtime_id', 'seat_ids', 'payment_method']
+    if not all(field in data for field in required_fields):
         return jsonify({"message": "Missing required fields"}), 400
-
-    seats = []
-    for seat_number in seat_numbers:
-        row, column = seat_number[0], int(seat_number[1:])
-        seat = Seat(
-            seat_number=seat_number,
-            row=row,
-            column=column,
-            showtime_id=showtime_id
+    
+    try:
+        # Check seat availability
+        seats = Seat.query.filter(
+            Seat.id.in_(data['seat_ids']),
+            Seat.is_reserved == False
+        ).all()
+        
+        if len(seats) != len(data['seat_ids']):
+            return jsonify({"message": "Some seats are already taken"}), 400
+        
+        # Calculate total amount
+        movie = Movie.query.get(data['movie_id'])
+        total_amount = movie.price * len(seats)
+        
+        # Create reservation
+        reservation = Reservation(
+            user_id=user_id,
+            showtime_id=data['showtime_id'],
+            status='pending'
         )
-        seats.append(seat)
+        db.session.add(reservation)
+        db.session.flush()  # Get the reservation ID
+        
+        # Assign seats
+        for seat in seats:
+            seat.is_reserved = True
+            reservation.seats.append(seat)
+        
+        # Create payment record
+        payment = Payment(
+            reservation_id=reservation.id,
+            amount=total_amount,
+            payment_method=data['payment_method'],
+            status='pending'
+        )
+        db.session.add(payment)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Reservation created successfully",
+            "reservation_id": reservation.id,
+            "total_amount": total_amount
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Reservation failed: {str(e)}"}), 500
 
-    db.session.add_all(seats)
-    db.session.commit()
+# # Create seats for a showtime (Admin only)
+# @app.route('/seats', methods=['POST'])
+# @jwt_required()
+# def create_seats():
+#     user_id = get_jwt_identity()
+#     user = User.query.get(user_id)
 
-    return jsonify({"message": "Seats created successfully"}), 201
+#     if user.role != 'admin':
+#         return jsonify({"message": "Admin access required"}), 403
+
+#     data = request.get_json()
+#     showtime_id = data.get('showtime_id')
+#     seat_numbers = data.get('seat_numbers')  # List of seat numbers (e.g., ['A1', 'A2'])
+
+#     if not all([showtime_id, seat_numbers]):
+#         return jsonify({"message": "Missing required fields"}), 400
+
+#     seats = []
+#     for seat_number in seat_numbers:
+#         row, column = seat_number[0], int(seat_number[1:])
+#         seat = Seat(
+#             seat_number=seat_number,
+#             row=row,
+#             column=column,
+#             showtime_id=showtime_id
+#         )
+#         seats.append(seat)
+
+#     db.session.add_all(seats)
+#     db.session.commit()
+
+#     return jsonify({"message": "Seats created successfully"}), 201
 
 # Create Reservation
 @app.route('/reservations/<int:reservation_id>', methods=['PUT'])
