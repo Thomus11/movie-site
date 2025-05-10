@@ -1,0 +1,16 @@
+              List of relations
+ Schema |       Name        | Type  | Owner  
+--------+-------------------+-------+--------
+ public | admin_references  | table | thomas
+ public | admins            | table | thomas
+ public | alembic_version   | table | thomas
+ public | cinemas           | table | thomas
+ public | movies            | table | thomas
+ public | payments          | table | thomas
+ public | reservation_seats | table | thomas
+ public | reservations      | table | thomas
+ public | seats             | table | thomas
+ public | showtimes         | table | thomas
+ public | users             | table | thomas
+(11 rows)
+

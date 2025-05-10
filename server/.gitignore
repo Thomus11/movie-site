@@ -179,4 +179,8 @@ migrations/
 *.sqlite
 *.log
 
+<<<<<<< HEAD
 .env
+=======
+.env
+>>>>>>> d57de367d7cd950ee77aae415119a2b4bb4fd0d7

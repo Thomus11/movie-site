@@ -1,4 +1,4 @@
-#!/home/thomas_dev/movie-cinema/movie-site/server/venv/bin/python3.10
+#!/home/eslieh/Development/help/movie-site/server/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
