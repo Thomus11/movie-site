@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "~slick-carousel/slick/slick.css";
+@import "~slick-carousel/slick/slick-theme.css";
+
+.custom-toast {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 15px;
+  background: #1e1e1e !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+  padding: 12px 20px !important;
+}
