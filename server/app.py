@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
+# from models import *
+from .models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy.orm import joinedload
 from resend.emails._emails import Emails
@@ -21,7 +22,7 @@ import stripe  # Stripe for payment processing
 load_dotenv()
 
 app = Flask(__name__)
-
+# db.init_app(app) 
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 CORS(app, origins=[frontend_url], supports_credentials=True)
 
@@ -53,11 +54,7 @@ def process_stripe_payment(amount, payment_token):
         raise Exception(f"Stripe error: {str(e)}")
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f'postgresql://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@'
-    f'{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}'
-)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://thomas:fluffy254@localhost:5432/cinema_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1095)  # 3 years expiry  

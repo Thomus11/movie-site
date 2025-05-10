@@ -24,6 +24,7 @@ class User(db.Model, SerializerMixin):
     reservations = db.relationship('Reservation', backref='user', cascade="all, delete")
 
     serialize_rules = ('-password_hash', '-reservations.user', '-reservations.seats', '-reservations.showtime',)
+    test_column = db.Column(db.String(50))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
