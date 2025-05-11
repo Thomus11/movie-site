@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState , useEffect} from "react";
+import { toast } from "react-toastify";
 import {
   FiUsers,
   FiFilm,
@@ -91,46 +92,21 @@ const AdminDashboard = () => {
     setMovies(updatedMovies);
   };
 
-  const [cinemas, setCinemas] = useState([
-    {
-      id: 1,
-      name: "Garden City",
-      location: "Thika Road",
-      screens: 5,
-      status: "active",
-    },
-    {
-      id: 2,
-      name: "Sarit Centre",
-      location: "Westlands",
-      screens: 4,
-      status: "active",
-    },
-    {
-      id: 3,
-      name: "Panari",
-      location: "Mombasa Road",
-      screens: 6,
-      status: "maintenance",
-    },
-    {
-      id: 4,
-      name: "Prestige",
-      location: "Ngong Road",
-      screens: 3,
-      status: "active",
-    },
-  ]);
 
-  const fetchCinemas = async () => {
-    try {
-      const cinemas_response = await api.get("/api/cinema");
-      setCinemas(cinemas_response.data);
-    } catch (error) {
-      console.error("Failed to fetch cinemas:", error);
-    }
-  };
-  fetchCinemas();
+  const [cinemas, setCinemas] = useState([]);
+
+  useEffect(() => {
+    const fetchCinemas = async () => {
+      try {
+        const cinemas_response = await api.get("/api/cinemas");
+        setCinemas(cinemas_response.data);
+      } catch (error) {
+        console.error("Failed to fetch cinemas:", error);
+      }
+    };
+
+    fetchCinemas();
+  }, []);
 
   const [movies, setMovies] = useState([
     {
@@ -166,29 +142,44 @@ const AdminDashboard = () => {
       ticketsSold: 0,
     },
   ]);
+  useEffect(()=> {
+    const fetchmovies = async () => {
+      try{
+        const moviedata = await api.get('/api/movies')
+        console.log(moviedata.data)
+        setMovies(moviedata.data)
+      } catch(error){
+        console.log(`error: ${error}`)
+      }
+    }
+    fetchmovies()
+  }, [])
 
+  const handeleDeleteMovies = async (id) => {
+    try{
+      const deleteMovie = await api.delete(`/movies/${id}`)
+      // alert('Movie deleted succes')
+      toast.success('Movie Deleted successfully')
+      // fetchmovies()
+    }catch(error){
+      console.log(`delete error: ${error}`)
+    }
+    // console.log('clicked')
+  }
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try{
+        const userData = await api.get('/api/users')
+        console.log(userData.data)
+        setUsers(userData.data)
+      } catch(error){
+        console.log(`error: ${error}`)
+      }
+    }
+    fetchUsers()
+  }, [])
   const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      role: "admin",
-      lastLogin: "2 hours ago",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      role: "manager",
-      lastLogin: "1 day ago",
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      role: "staff",
-      lastLogin: "3 days ago",
-    },
+
   ]);
 
   const [revenueData, setRevenueData] = useState({
@@ -322,12 +313,12 @@ const AdminDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Runtime
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Tickets Sold
-                    </th>
+                    </th> */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
@@ -343,9 +334,9 @@ const AdminDashboard = () => {
                         {movie.genre}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {movie.runtime}
+                        {movie.duration}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${
                             movie.status === "showing"
@@ -358,12 +349,12 @@ const AdminDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {movie.ticketsSold}
-                      </td>
+                      </td> */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-blue-500 hover:text-blue-700 mr-3">
+                        {/* <button className="text-blue-500 hover:text-blue-700 mr-3">
                           Edit
-                        </button>
-                        <button className="text-red-500 hover:text-red-700">
+                        </button> */}
+                        <button onClick={() => handeleDeleteMovies(movie.id)} className="text-red-500 hover:text-red-700">
                           Delete
                         </button>
                       </td>
@@ -393,12 +384,12 @@ const AdminDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Location
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Screens
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
-                    </th>
+                    </th> */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
@@ -413,7 +404,7 @@ const AdminDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {cinema.location}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* <td className="px-6 py-4 whitespace-nowrap">
                         {cinema.screens}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -426,11 +417,8 @@ const AdminDashboard = () => {
                         >
                           {cinema.status}
                         </span>
-                      </td>
+                      </td> */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-blue-500 hover:text-blue-700 mr-3">
-                          Edit
-                        </button>
                         <button className="text-red-500 hover:text-red-700">
                           Delete
                         </button>
@@ -447,9 +435,9 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-semibold text-lg">User Management</h3>
-              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+              {/* <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
                 Add New User
-              </button>
+              </button> */}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -464,12 +452,12 @@ const AdminDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last Login
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
-                    </th>
+                    </th> */}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -494,14 +482,14 @@ const AdminDashboard = () => {
                           {user.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* <td className="px-6 py-4 whitespace-nowrap">
                         {user.lastLogin}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button className="text-red-500 hover:text-red-700">
                           Delete
                         </button>
-                      </td>
+                      </td> */}
                     </tr>
                   ))}
                 </tbody>

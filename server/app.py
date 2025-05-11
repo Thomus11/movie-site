@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 # from models import *
-from models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
+from .models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy.orm import joinedload
 from resend.emails._emails import Emails
@@ -254,7 +254,15 @@ def admin_dashboard():
         "user_id": user.id
     }), 200
 
-
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    return jsonify([{
+        "id": user.id,
+        "name": user.username,
+        "email": user.email,
+        "role": user.role } for user in users]), 200
+    
 # Promote a user to admin (Admin only)
 @app.route('/users/promote/<int:user_id>', methods=['POST'])
 def promote_user(user_id):
@@ -354,8 +362,41 @@ def get_cinemas():
     return jsonify([{
         'id': c.id,
         'name': c.name,
-        'location': c.location
+        'location': c.location,
+        'capacity': c.capacity
     } for c in cinemas])
+    
+# ➕ Add Cinema
+@app.route('/api/cinemas', methods=['POST'])
+def add_cinema():
+    data = request.get_json()
+    name = data.get('name')
+    location = data.get('location')
+    capacity = data.get('capacity')
+    if not name or not location or not capacity:
+        return jsonify({'error': 'Name and location are required'}), 400
+
+    new_cinema = Cinema(name=name, location=location, capacity=capacity)
+    db.session.add(new_cinema)
+    db.session.commit()
+
+    return jsonify({
+        'id': new_cinema.id,
+        'name': new_cinema.name,
+        'location': new_cinema.location,
+        'capacity': new_cinema.capacity
+    }), 201
+
+# ❌ Delete Cinema
+@app.route('/api/cinemas/<int:id>', methods=['DELETE'])
+def delete_cinema(id):
+    cinema = Cinema.query.get(id)
+    if not cinema:
+        return jsonify({'error': 'Cinema not found'}), 404
+
+    db.session.delete(cinema)
+    db.session.commit()
+    return jsonify({'message': f'Cinema {id} deleted successfully'})
 
 # # Reservation Routes
 @app.route('/api/reservations', methods=['GET'])
@@ -423,20 +464,20 @@ def update_movie(movie_id):
     return jsonify({"message": "Movie updated successfully"}), 200
 
 # # Delete a movie (Admin only)
-# @app.route('/movies/<int:movie_id>', methods=['DELETE'])
-# @jwt_required()
-# def delete_movie(movie_id):
-#     user_id = get_jwt_identity()
-#     user = User.query.get(user_id)
+@app.route('/movies/<int:movie_id>', methods=['DELETE'])
+@jwt_required()
+def delete_movie(movie_id):
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
 
-#     if user.role != 'admin':
-#         return jsonify({"message": "Admin access required"}), 403
+    if user.role != 'admin':
+        return jsonify({"message": "Admin access required"}), 403
 
-#     movie = Movie.query.get_or_404(movie_id)
-#     db.session.delete(movie)
-#     db.session.commit()
+    movie = Movie.query.get_or_404(movie_id)
+    db.session.delete(movie)
+    db.session.commit()
 
-#     return jsonify({"message": "Movie deleted successfully"}), 200
+    return jsonify({"message": "Movie deleted successfully"}), 201
 
 
 

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import { MapPin, Star } from 'lucide-react';
-
+import api from '../api';
 const CinemaSelector = () => {
   const [activeCinema, setActiveCinema] = useState('Garden City');
   const [cinemas, setCinemas] = useState([]);
@@ -8,7 +8,7 @@ const CinemaSelector = () => {
    useEffect(() => {
     const fetchCinemas = async () => {
       try {
-        const response = await api.post('/api/cinema');
+        const response = await api.post('/api/cinemas');
         setCinemas(response.data);
       } catch (error) {
         console.error('Error fetching cinemas:', error);
