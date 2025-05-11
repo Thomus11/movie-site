@@ -358,33 +358,33 @@ def get_cinemas():
     } for c in cinemas])
 
 # # Reservation Routes
-# @app.route('/api/reservations', methods=['GET'])
-# @jwt_required()
-# def get_user_reservations():
-#     user_id = get_jwt_identity()
-#     reservations = Reservation.query.options(
-#         joinedload(Reservation.showtime).joinedload(Showtime.movie),
-#         joinedload(Reservation.showtime).joinedload(Showtime.cinema),
-#         joinedload(Reservation.seats)
-#     ).filter_by(user_id=user_id).all()
+@app.route('/api/reservations', methods=['GET'])
+@jwt_required()
+def get_user_reservations():
+    user_id = get_jwt_identity()
+    reservations = Reservation.query.options(
+        joinedload(Reservation.showtime).joinedload(Showtime.movie),
+        joinedload(Reservation.showtime).joinedload(Showtime.cinema),
+        joinedload(Reservation.seats)
+    ).filter_by(user_id=user_id).all()
     
-#     return jsonify([{
-#         'id': r.id,
-#         'status': r.status,
-#         'amount': r.payment.amount if r.payment else None,
-#         'movie': {
-#             'title': r.showtime.movie.title,
-#             'poster_url': r.showtime.movie.poster_url
-#         },
-#         'cinema': {
-#             'name': r.showtime.cinema.name,
-#             'location': r.showtime.cinema.location
-#         },
-#         'showtime': {
-#             'start_time': r.showtime.start_time.isoformat()
-#         },
-#         'seats': [s.seat_number for s in r.seats]
-#     } for r in reservations])    
+    return jsonify([{
+        'id': r.id,
+        'status': r.status,
+        'amount': r.payment.amount if r.payment else None,
+        'movie': {
+            'title': r.showtime.movie.title,
+            'poster_url': r.showtime.movie.poster_url
+        },
+        'cinema': {
+            'name': r.showtime.cinema.name,
+            'location': r.showtime.cinema.location
+        },
+        'showtime': {
+            'start_time': r.showtime.start_time.isoformat()
+        },
+        'seats': [s.seat_number for s in r.seats]
+    } for r in reservations])    
 
 # Update a movie (Admin only)
 @app.route('/movies/<int:movie_id>', methods=['PUT'])
