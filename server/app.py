@@ -565,29 +565,29 @@ def get_current_user():
         "role": user.role
     }), 200
 
-# Get user's reservations
-@app.route('/api/reservations', methods=['GET'])
-@jwt_required()
-def get_user_reservations():
-    user_id = get_jwt_identity()
-    reservations = Reservation.query.filter_by(user_id=user_id).all()
+# # Get user's reservations
+# @app.route('/api/reservations', methods=['GET'])
+# @jwt_required()
+# def get_user_reservations():
+#     user_id = get_jwt_identity()
+#     reservations = Reservation.query.filter_by(user_id=user_id).all()
     
-    return jsonify([{
-        "id": reservation.id,
-        "movie": {
-            "id": reservation.showtime.movie.id,
-            "title": reservation.showtime.movie.title
-        },
-        "cinema": {
-            "id": reservation.showtime.cinema.id,
-            "name": reservation.showtime.cinema.name
-        },
-        "showtime": reservation.showtime.start_time.isoformat(),
-        "seats": [seat.seat_number for seat in reservation.seats],
-        "amount": reservation.payment.amount,
-        "status": reservation.status,
-        "payment_method": reservation.payment.payment_method
-    } for reservation in reservations]), 200
+#     return jsonify([{
+#         "id": reservation.id,
+#         "movie": {
+#             "id": reservation.showtime.movie.id,
+#             "title": reservation.showtime.movie.title
+#         },
+#         "cinema": {
+#             "id": reservation.showtime.cinema.id,
+#             "name": reservation.showtime.cinema.name
+#         },
+#         "showtime": reservation.showtime.start_time.isoformat(),
+#         "seats": [seat.seat_number for seat in reservation.seats],
+#         "amount": reservation.payment.amount,
+#         "status": reservation.status,
+#         "payment_method": reservation.payment.payment_method
+#     } for reservation in reservations]), 200
 
 # Create new reservation
 @app.route('/api/reservations', methods=['POST'])
