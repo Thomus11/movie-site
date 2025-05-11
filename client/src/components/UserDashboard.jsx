@@ -281,10 +281,10 @@ const UserDashboard = () => {
                               <span>KSh {reservation.amount}</span>
                             </div>
                             <div className="flex justify-between mt-1 text-xs">
-                              <span>
+                              {/* <span>
                                 {new Date(reservation.showtime.start_time).toLocaleDateString()} • 
                                 {new Date(reservation.showtime.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                              </span>
+                              </span> */}
                               <span>Seats: {reservation.seats.map(s => s.seat_number).join(', ')}</span>
                             </div>
                           </div>
