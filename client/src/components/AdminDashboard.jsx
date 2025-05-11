@@ -50,7 +50,6 @@ const AdminDashboard = () => {
       description: form.value,
       genre: form.genre.value,
       release_date: form.release_date.value,
-      price: form.price.value,
       poster_url: form.poster_url.value,
     };
 
