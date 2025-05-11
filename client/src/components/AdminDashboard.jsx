@@ -60,7 +60,7 @@ const AdminDashboard = () => {
       setMovies(prev => [...prev, response.data]);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to add movie");
+      toast.error(`Failed to add movie: ${err}`);
     }
 
     setShowModal(false);
