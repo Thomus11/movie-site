@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 # from models import *
-from .models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
+from models import db, User, Movie, Cinema, Showtime, Seat, Reservation, Payment
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy.orm import joinedload
 from resend.emails._emails import Emails
