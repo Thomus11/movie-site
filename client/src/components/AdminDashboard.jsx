@@ -44,54 +44,27 @@ const AdminDashboard = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form = e.target;
-    const file = form.poster.files[0];
-    const poster_url = await handleImageUpload(file);
 
     const payload = {
       title: form.title.value,
       description: form.description.value,
       genre: form.genre.value,
       release_date: form.release_date.value,
-      poster_url,
+      poster_url: form.poster_url.value,
     };
 
-    // send payload to your backend
-    await fetch("/api/movies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await api.post("/movies", payload);
+      toast.success("Movie added successfully");
+      setMovies(prev => [...prev, response.data]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add movie");
+    }
 
     setShowModal(false);
-    const newMovies = response.data.map((movie) => {
-      // Define hardcoded values for known titles
-      const overrides = {
-        "Dune: Part Two": { runtime: "166 min", status: "showing", ticketsSold: 1245 },
-        "The Batman": { runtime: "176 min", status: "showing", ticketsSold: 982 },
-        "Furiosa": { runtime: "148 min", status: "coming soon", ticketsSold: 0 },
-        "Avatar 3": { runtime: "190 min", status: "coming soon", ticketsSold: 0 },
-      };
-
-      return {
-        ...movie,
-        ...overrides[movie.title] || { runtime: "N/A", status: "coming soon", ticketsSold: 0 }
-      };
-    });
-
-    // Merge logic: update if exists, else add
-    const updatedMovies = [...movies];
-    newMovies.forEach((newMovie) => {
-      const index = updatedMovies.findIndex((m) => m.id === newMovie.id);
-      if (index > -1) {
-        updatedMovies[index] = newMovie;
-      } else {
-        updatedMovies.push(newMovie);
-      }
-    });
-
-    setMovies(updatedMovies);
+    form.reset();
   };
-
 
   const [cinemas, setCinemas] = useState([]);
 
@@ -238,58 +211,16 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {showModal && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <form
-                  onSubmit={handleSubmit}
-                  className="bg-white p-6 rounded shadow-md w-96 space-y-4"
-                >
+                <form onSubmit={handleSubmit} className="bg-white p-6 rounded w-96 space-y-4">
                   <h2 className="text-xl font-semibold">Add New Movie</h2>
-                  <input
-                    type="text"
-                    name="title"
-                    placeholder="Title"
-                    required
-                    className="w-full border px-3 py-2"
-                  />
-                  <textarea
-                    name="description"
-                    placeholder="Description"
-                    required
-                    className="w-full border px-3 py-2"
-                  />
-                  <input
-                    type="text"
-                    name="genre"
-                    placeholder="Genre"
-                    required
-                    className="w-full border px-3 py-2"
-                  />
-                  <input
-                    type="date"
-                    name="release_date"
-                    required
-                    className="w-full border px-3 py-2"
-                  />
-                  <input
-                    type="file"
-                    name="poster"
-                    accept="image/*"
-                    required
-                    className="w-full"
-                  />
+                  <input type="text" name="title" placeholder="Title" required className="w-full border px-3 py-2" />
+                  <textarea name="description" placeholder="Description" required className="w-full border px-3 py-2" />
+                  <input type="text" name="genre" placeholder="Genre" required className="w-full border px-3 py-2" />
+                  <input type="date" name="release_date" required className="w-full border px-3 py-2" />
+                  <input type="url" name="poster_url" placeholder="Poster URL" required className="w-full border px-3 py-2" />
                   <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowModal(false)}
-                      className="ml-2 text-gray-500"
-                    >
-                      Cancel
-                    </button>
+                    <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Save</button>
+                    <button type="button" onClick={() => setShowModal(false)} className="ml-2">Cancel</button>
                   </div>
                 </form>
               </div>
@@ -310,9 +241,9 @@ const AdminDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Genre
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Runtime
-                    </th>
+                    </th> */}
                     {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
@@ -333,9 +264,9 @@ const AdminDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {movie.genre}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* <td className="px-6 py-4 whitespace-nowrap">
                         {movie.duration}
-                      </td>
+                      </td> */}
                       {/* <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${
@@ -365,71 +296,71 @@ const AdminDashboard = () => {
             </div>
           </div>
         );
-      case "cinemas":
-        return (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="font-semibold text-lg">Cinema Management</h3>
-              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-                Add New Cinema
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Location
-                    </th>
-                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Screens
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th> */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {cinemas.map((cinema) => (
-                    <tr key={cinema.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {cinema.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {cinema.location}
-                      </td>
-                      {/* <td className="px-6 py-4 whitespace-nowrap">
-                        {cinema.screens}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            cinema.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {cinema.status}
-                        </span>
-                      </td> */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-red-500 hover:text-red-700">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+      // case "cinemas":
+      //   return (
+      //     <div className="bg-white rounded-lg shadow overflow-hidden">
+      //       <div className="p-4 border-b flex justify-between items-center">
+      //         <h3 className="font-semibold text-lg">Cinema Management</h3>
+      //         <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+      //           Add New Cinema
+      //         </button>
+      //       </div>
+      //       <div className="overflow-x-auto">
+      //         <table className="min-w-full divide-y divide-gray-200">
+      //           <thead className="bg-gray-50">
+      //             <tr>
+      //               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      //                 Name
+      //               </th>
+      //               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      //                 Location
+      //               </th>
+      //               {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      //                 Screens
+      //               </th>
+      //               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      //                 Status
+      //               </th> */}
+      //               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      //                 Actions
+      //               </th>
+      //             </tr>
+      //           </thead>
+      //           <tbody className="bg-white divide-y divide-gray-200">
+      //             {cinemas.map((cinema) => (
+      //               <tr key={cinema.id}>
+      //                 <td className="px-6 py-4 whitespace-nowrap">
+      //                   {cinema.name}
+      //                 </td>
+      //                 <td className="px-6 py-4 whitespace-nowrap">
+      //                   {cinema.location}
+      //                 </td>
+      //                 {/* <td className="px-6 py-4 whitespace-nowrap">
+      //                   {cinema.screens}
+      //                 </td>
+      //                 <td className="px-6 py-4 whitespace-nowrap">
+      //                   <span
+      //                     className={`px-2 py-1 rounded-full text-xs ${
+      //                       cinema.status === "active"
+      //                         ? "bg-green-100 text-green-800"
+      //                         : "bg-yellow-100 text-yellow-800"
+      //                     }`}
+      //                   >
+      //                     {cinema.status}
+      //                   </span>
+      //                 </td> */}
+      //                 <td className="px-6 py-4 whitespace-nowrap">
+      //                   <button className="text-red-500 hover:text-red-700">
+      //                     Delete
+      //                   </button>
+      //                 </td>
+      //               </tr>
+      //             ))}
+      //           </tbody>
+      //         </table>
+      //       </div>
+      //     </div>
+      //   );
       case "users":
         return (
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -590,7 +521,7 @@ const AdminDashboard = () => {
                 Movies
               </button>
             </li>
-            <li>
+            {/* <li>
               <button
                 onClick={() => setActiveTab("cinemas")}
                 className={`w-full flex items-center p-3 rounded-lg ${
@@ -602,7 +533,7 @@ const AdminDashboard = () => {
                 <FaTheaterMasks className="mr-3" />
                 Cinemas
               </button>
-            </li>
+            </li> */}
             <li>
               <button
                 onClick={() => setActiveTab("users")}
