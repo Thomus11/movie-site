@@ -51,9 +51,7 @@ const UserDashboard = () => {
         setCinemas(cinemasRes.data);
         
         // Fetch user reservations
-        const reservationsRes = await api.get('/api/reservations', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const reservationsRes = await api.get('/api/reservations');
         setReservations(reservationsRes.data);
         
       } catch (error) {
@@ -80,17 +78,20 @@ const UserDashboard = () => {
        movie.genre.toLowerCase().includes(searchQuery.toLowerCase()))
     )
   };
+  
 
   // Handle seat reservation
   const handleReserveSeats = async (paymentDetails = null) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await api.post('/api/reservations', {
+      const reservationData = {
         movie_id: selectedMovie.id,
         showtime_id: selectedTime.id,
         seat_ids: selectedSeats,
         payment_method: 'M-Pesa'
-      });
+      }
+      console.log(reservationData)
+      const response = await api.post('/api/reservations', reservationData);
 
       // Update local state with new reservation
       setReservations([response.data, ...reservations]);
@@ -103,7 +104,7 @@ const UserDashboard = () => {
       setSelectedTime(null);
       
     } catch (error) {
-      toast.error("Reservation failed");
+      toast.error(`Reservation failed: ${error.message}`);
       console.error("Reservation error:", error);
     }
   };
@@ -111,6 +112,7 @@ const UserDashboard = () => {
   // Handle payment success
   const handlePaymentSuccess = (paymentDetails) => {
     // Create new reservation object
+    
     const newReservation = {
       id: `RES${Date.now().toString().slice(-6)}`,
       movie: selectedMovie.title,
@@ -149,7 +151,7 @@ const UserDashboard = () => {
   // Handle logout
   const handleLogout = () => {
     localStorage.removeItem('token');
-    navigate('/login');
+    navigate('/');
   };
 
   // Seat selection component

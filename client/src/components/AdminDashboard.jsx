@@ -47,9 +47,10 @@ const AdminDashboard = () => {
 
     const payload = {
       title: form.title.value,
-      description: form.description.value,
+      description: form.value,
       genre: form.genre.value,
       release_date: form.release_date.value,
+      price: form.price.value,
       poster_url: form.poster_url.value,
     };
 
@@ -216,7 +217,7 @@ const AdminDashboard = () => {
                   <input type="text" name="title" placeholder="Title" required className="w-full border px-3 py-2" />
                   <textarea name="description" placeholder="Description" required className="w-full border px-3 py-2" />
                   <input type="text" name="genre" placeholder="Genre" required className="w-full border px-3 py-2" />
-                  <input type="date" name="release_date" required className="w-full border px-3 py-2" />
+                  <input type="number" name="price" placeholder="Ticket Price" required min="0" step="0.01" className="w-full border px-3 py-2" /><input type="date" name="release_date" required className="w-full border px-3 py-2" />
                   <input type="url" name="poster_url" placeholder="Poster URL" required className="w-full border px-3 py-2" />
                   <div className="flex justify-end">
                     <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Save</button>

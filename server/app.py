@@ -289,9 +289,10 @@ def create_movie():
     poster_url = data.get('poster_url')
     genre = data.get('genre')
     release_date = data.get('release_date')
+    price = data.get('price')
 
     # Validation
-    if not all([title, description, poster_url, genre, release_date]):
+    if not all([title, description, poster_url, genre, release_date,price]):
         return jsonify({"message": "Missing required fields"}), 400
     if len(title) > 200:
         return jsonify({"message": "Title must be <= 200 characters"}), 400
@@ -309,6 +310,7 @@ def create_movie():
         description=description,
         poster_url=poster_url,
         genre=genre,
+        price=price,
         release_date=release_date
     )
     db.session.add(movie)
@@ -636,57 +638,66 @@ def get_current_user():
 def create_reservation():
     user_id = get_jwt_identity()
     data = request.get_json()
-    
-    # Validate required fields
+
     required_fields = ['movie_id', 'showtime_id', 'seat_ids', 'payment_method']
     if not all(field in data for field in required_fields):
         return jsonify({"message": "Missing required fields"}), 400
-    
+
     try:
-        # Check seat availability
-        seats = Seat.query.filter(
-            Seat.id.in_(data['seat_ids']),
-            Seat.is_reserved == False
+        requested_seat_numbers = data['seat_ids']
+        number_of_requested_seats = len(requested_seat_numbers)
+        # Step 1: Fetch only unreserved seats matching the request
+        available_seats = Seat.query.filter(
+            Seat.seat_number.in_(requested_seat_numbers),
+            Seat.is_reserved == False,
+            Seat.showtime_id == data['showtime_id']
         ).all()
-        
-        if len(seats) != len(data['seat_ids']):
-            return jsonify({"message": "Some seats are already taken"}), 400
-        
-        # Calculate total amount
+
+        # Step 2: Compare to detect unavailable seats
+        available_seat_numbers = [seat.seat_number.strip().upper() for seat in available_seats]
+        requested_seat_numbers = [s.strip().upper() for s in data['seat_ids']]
+        unavailable_seats = set(requested_seat_numbers) - set(available_seat_numbers)
+
+        if unavailable_seats:
+            return jsonify({
+                "message": "Some seats are already taken or invalid for this showtime.",
+                "unavailable_seats": list(unavailable_seats)
+            }), 409  # Conflict
+
+        # Step 3: Calculate amount
         movie = Movie.query.get(data['movie_id'])
-        total_amount = movie.price * len(seats)
-        
-        # Create reservation
+        if not movie:
+            return jsonify({"message": "Movie not found"}), 404
+
+        print(f"{movie.price} * {number_of_requested_seats}")
+        total_amount = float(int(movie.price) * int(number_of_requested_seats))
+
+        # Step 4: Create reservation
         reservation = Reservation(
             user_id=user_id,
             showtime_id=data['showtime_id'],
-            status='pending'
+            status='Confirmed'
         )
         db.session.add(reservation)
-        db.session.flush()  # Get the reservation ID
-        
-        # Assign seats
-        for seat in seats:
+        db.session.flush()
+
+        for seat in available_seats:
             seat.is_reserved = True
             reservation.seats.append(seat)
-        
-        # Create payment record
+
+        # Step 5: Create payment
         payment = Payment(
             reservation_id=reservation.id,
+            user_id = user_id,
             amount=total_amount,
             payment_method=data['payment_method'],
-            status='pending'
+            status='Confirmed'
         )
         db.session.add(payment)
-        
         db.session.commit()
-        
-        return jsonify({
-            "message": "Reservation created successfully",
-            "reservation_id": reservation.id,
-            "total_amount": total_amount
-        }), 201
-        
+
+        return jsonify(reservation.to_dict()), 201
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Reservation failed: {str(e)}"}), 500
