@@ -82,7 +82,7 @@ const UserDashboard = () => {
   };
 
   // Handle seat reservation
-  const handleReserveSeats = async () => {
+  const handleReserveSeats = async (paymentDetails = null) => {
     try {
       const token = localStorage.getItem('authToken');
       const response = await api.post('/api/reservations', {
@@ -90,8 +90,6 @@ const UserDashboard = () => {
         showtime_id: selectedTime.id,
         seats: selectedSeats,
         payment_method: 'M-Pesa'
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
       // Update local state with new reservation
@@ -129,6 +127,8 @@ const UserDashboard = () => {
       }
     };
 
+
+
     // Update local state
     setReservations([newReservation, ...reservations]);
     setShowPaymentPage(false);
@@ -141,7 +141,10 @@ const UserDashboard = () => {
 
     // Show success message
     toast.success(`Booking confirmed! Transaction ID: ${paymentDetails.transactionId}`);
+    handleReserveSeats(paymentDetails);
   };
+
+
 
   // Handle logout
   const handleLogout = () => {
