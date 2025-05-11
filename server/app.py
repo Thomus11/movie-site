@@ -289,10 +289,10 @@ def create_movie():
     poster_url = data.get('poster_url')
     genre = data.get('genre')
     release_date = data.get('release_date')
-    price = data.get('price')
+    # price = data.get('price')
 
     # Validation
-    if not all([title, description, poster_url, genre, release_date,price]):
+    if not all([title, description, poster_url, genre, release_date]):
         return jsonify({"message": "Missing required fields"}), 400
     if len(title) > 200:
         return jsonify({"message": "Title must be <= 200 characters"}), 400
@@ -310,7 +310,7 @@ def create_movie():
         description=description,
         poster_url=poster_url,
         genre=genre,
-        price=price,
+        price="1500",
         release_date=release_date
     )
     db.session.add(movie)
