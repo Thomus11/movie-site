@@ -47,9 +47,10 @@ const AdminDashboard = () => {
 
     const payload = {
       title: form.title.value,
-      description: form.value,
+      description: form.description.value,
       genre: form.genre.value,
       release_date: form.release_date.value,
+      price: form.price.value,
       poster_url: form.poster_url.value,
     };
 
