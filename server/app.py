@@ -29,8 +29,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_s5vdiWkpu1Tb@ep-shy-scene-a4pi4s1w-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
 db.init_app(app)
 # db.init_app(app) 
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-CORS(app, origins=[frontend_url], supports_credentials=True)
+# frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+CORS(app)
 
 
 # Configure Stripe with secret key from environment variables
