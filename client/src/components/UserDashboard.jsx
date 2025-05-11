@@ -88,7 +88,7 @@ const UserDashboard = () => {
       const response = await api.post('/api/reservations', {
         movie_id: selectedMovie.id,
         showtime_id: selectedTime.id,
-        seats: selectedSeats,
+        seat_ids: selectedSeats,
         payment_method: 'M-Pesa'
       });
 
