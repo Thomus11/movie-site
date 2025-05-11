@@ -3,37 +3,20 @@ import { MapPin, Star } from 'lucide-react';
 
 const CinemaSelector = () => {
   const [activeCinema, setActiveCinema] = useState('Garden City');
+  const [cinemas, setCinemas] = useState([]);
 
-  const cinemas = [
-    { 
-      name: 'Garden City', 
-      location: 'Thika Road', 
-      rating: 4.8,
-      features: ['IMAX', 'Dolby Atmos'],
-      image: "/images/cinema1.jpeg",
-    },
-    { 
-      name: 'Sarit Centre', 
-      location: 'Westlands', 
-      rating: 4.5,
-      features: ['4DX', 'Gourmet Snacks'],
-      image: "/images/cinema2.jpg"
-    },
-    { 
-      name: 'Panari', 
-      location: 'Mombasa Road', 
-      rating: 4.2,
-      features: ['Sky Deck', 'Kids Arena'],
-      image: "/images/cinema3.jpeg"
-    },
-    { 
-      name: 'Prestige', 
-      location: 'Ngong Road', 
-      rating: 4.6,
-      features: ['Platinum Class', 'Wine Bar'],
-      image: "/images/cinema4.jpeg"
-    }
-  ];
+   useEffect(() => {
+    const fetchCinemas = async () => {
+      try {
+        const response = await api.post('/api/cinema');
+        setCinemas(response.data);
+      } catch (error) {
+        console.error('Error fetching cinemas:', error);
+      }
+    };
+
+    fetchCinemas();
+  }, []);
 
   return (
     <section className="bg-[#0B0C10] py-12 px-6">
