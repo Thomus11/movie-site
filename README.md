@@ -27,7 +27,7 @@ The **Movie Reservation Web App** is a modern, full-stack movie booking system w
 - **SQLAlchemy** ORM
 - **Alembic** for migrations
 - **JWT Authentication**
-- **Hosted via Render or Vercel (frontend)**
+- **Hosted via Vercel (frontend)**
 
 ---
 
