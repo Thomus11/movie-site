@@ -230,7 +230,7 @@ server/
 
 ## 🧪 Testing
 
-- Test your API endpoints using **Insomnia** (import `insomnia_movie_site.json`)
+- Test API endpoints using **Insomnia** (import `insomnia_movie_site.json`)
 - Use test users for booking/reservation logic.
 - Test M-Pesa simulations via the payment flow in the frontend.
 
